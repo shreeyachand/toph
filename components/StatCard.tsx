@@ -18,7 +18,7 @@ export default function StatCard({
         {label}
       </p>
       <p className="mt-3 flex items-baseline gap-3 font-display">
-        <span className="text-[48px] font-medium leading-none tracking-tight text-black">
+        <span className="text-[36px] font-medium leading-none tracking-tight text-black sm:text-[48px]">
           {value}
         </span>
         {suffix && (
