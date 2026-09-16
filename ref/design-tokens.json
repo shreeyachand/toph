@@ -1,0 +1,104 @@
+{
+  "file": "F26 Dev Challenge Figma",
+  "key": "nvpGmK1je0QsesXtZcBdjg",
+  "colors": [
+    {
+      "hex": "#4D4D4D",
+      "uses": 108
+    },
+    {
+      "hex": "#000000",
+      "uses": 56
+    },
+    {
+      "hex": "#FFFFFF",
+      "uses": 46
+    },
+    {
+      "hex": "#B3B3B3",
+      "uses": 8
+    },
+    {
+      "hex": "#808080",
+      "uses": 2
+    },
+    {
+      "hex": "#019C25",
+      "uses": 2
+    },
+    {
+      "hex": "#CCCCCC",
+      "uses": 2
+    },
+    {
+      "hex": "#F8F8F8",
+      "uses": 2
+    },
+    {
+      "hex": "#146C44",
+      "uses": 2
+    },
+    {
+      "hex": "#3E3E3E",
+      "uses": 1
+    },
+    {
+      "hex": "#0065F0",
+      "uses": 1
+    }
+  ],
+  "textStyles": [
+    {
+      "family": "Geist",
+      "size": 14.0,
+      "weight": 400,
+      "uses": 140
+    },
+    {
+      "family": "Geist",
+      "size": 16.0,
+      "weight": 400,
+      "uses": 15
+    },
+    {
+      "family": "Geist",
+      "size": 10.0,
+      "weight": 500,
+      "uses": 10
+    },
+    {
+      "family": "Geist",
+      "size": 48.0,
+      "weight": 500,
+      "uses": 6
+    },
+    {
+      "family": "Geist",
+      "size": 14.0,
+      "weight": 500,
+      "uses": 4
+    },
+    {
+      "family": "Inter",
+      "size": 32.0,
+      "weight": 400,
+      "uses": 4
+    },
+    {
+      "family": "Inter",
+      "size": 96.0,
+      "weight": 400,
+      "uses": 3
+    },
+    {
+      "family": "Geist",
+      "size": 20.0,
+      "weight": 600,
+      "uses": 2
+    }
+  ],
+  "fonts": [
+    "Geist",
+    "Inter"
+  ]
+}

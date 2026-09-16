@@ -1,0 +1,685 @@
+# Components — F26 Dev Challenge Figma
+
+Key `nvpGmK1je0QsesXtZcBdjg` | 894 nodes | 28 components | 2 sets
+
+## Component Sets
+- Toph Navigation Bar
+- Main Dash
+
+## Components (masters)
+
+- Property 1=Light Mode — id `1:101`
+- user-star — id `1:2`
+- inbox — id `1:7`
+- chart-line — id `1:11`
+- audio-lines — id `1:15`
+- map — id `1:23`
+- book-check — id `1:28`
+- files — id `1:32`
+- calendar — id `1:37`
+- users — id `1:43`
+- chart-pie — id `1:49`
+- mail — id `1:53`
+- cog — id `1:57`
+- handshake — id `1:73`
+- arrow-right-left — id `1:80`
+- log-out — id `1:86`
+- Property 1=Expand — id `1:403`
+- search — id `1:227`
+- clipboard-pen — id `1:231`
+- percent — id `1:237`
+- x — id `1:242`
+- list-filter — id `1:246`
+- funnel — id `1:251`
+- square — id `1:254`
+- play — id `1:258`
+- star — id `1:261`
+- expand — id `1:264`
+- Property 1=Default — id `1:275`
+
+## Icon inventory (all 16x16 INSTANCE masters)
+
+- user-star
+- inbox
+- chart-line
+- audio-lines
+- map
+- book-check
+- files
+- calendar
+- users
+- chart-pie
+- mail
+- cog
+- handshake
+- arrow-right-left
+- log-out
+- search
+- clipboard-pen
+- percent
+- x
+- list-filter
+- funnel
+- square
+- play
+- star
+- expand
+
+## Layout tree — Dashboard 1:762 (expanded)
+
+- Dashboard `FRAME` 1676x955
+  - Toph Navigation Bar `INSTANCE` 280x935
+    - Frame 152 `FRAME` 260x50
+      - Frame 153 `FRAME` 129x42
+        - Ellipse 11 `ELLIPSE` 42x42
+        - Frame 150 `FRAME` 77x28
+          - Bays Ranch `TEXT` 77x10 — "Bays Ranch"
+          - Frame 149 `FRAME` 77x10
+            - user-star `INSTANCE` 10x10
+              - user-star `FRAME` 10x10
+                - Vector `VECTOR` 4x4
+                - Vector `VECTOR` 2x2
+                - Vector `VECTOR` 3x3
+            - Admin `TEXT` 43x10 — "Admin"
+      - inbox `INSTANCE` 16x16
+        - inbox `FRAME` 16x16
+          - Vector `VECTOR` 13x2
+          - Vector `VECTOR` 13x11
+    - Frame 154 `FRAME` 260x147
+      - Frame 157 `FRAME` 260x21
+        - OVERVIEW `TEXT` 52x13 — "OVERVIEW"
+      - Button `FRAME` 260x38
+        - Frame 159 `FRAME` 100x18
+          - chart-line `INSTANCE` 16x16
+            - chart-line `FRAME` 16x16
+              - Vector `VECTOR` 12x12
+              - Vector `VECTOR` 8x3
+          - Dashboard `TEXT` 70x18 — "Dashboard"
+        - Frame 158 `FRAME` 20x14
+          - 1 `TEXT` 5x13 — "1"
+      - Button `FRAME` 260x38
+        - audio-lines `INSTANCE` 16x16
+          - audio-lines `FRAME` 16x16
+            - Vector `VECTOR` 0x2
+            - Vector `VECTOR` 0x7
+            - Vector `VECTOR` 0x12
+            - Vector `VECTOR` 0x5
+            - Vector `VECTOR` 0x9
+            - Vector `VECTOR` 0x2
+        - Activity Logs `TEXT` 83x18 — "Activity Logs"
+      - Button `FRAME` 260x38
+        - map `INSTANCE` 16x16
+          - map `FRAME` 16x16
+            - Vector `VECTOR` 12x12
+            - Vector `VECTOR` 0x10
+            - Vector `VECTOR` 0x10
+        - Map `TEXT` 29x18 — "Map"
+    - Frame 155 `FRAME` 260x147
+      - Frame 157 `FRAME` 260x21
+        - COMPLIANCE `TEXT` 66x13 — "COMPLIANCE"
+      - Button `FRAME` 260x38
+        - book-check `INSTANCE` 16x16
+          - book-check `FRAME` 16x16
+            - Vector `VECTOR` 11x13
+            - Vector `VECTOR` 4x3
+        - Audit Manager `TEXT` 94x18 — "Audit Manager"
+      - Button `FRAME` 260x38
+        - files `INSTANCE` 16x16
+          - files `FRAME` 16x16
+            - Vector `VECTOR` 8x10
+            - Vector `VECTOR` 4x4
+            - Vector `VECTOR` 8x10
+        - Reports `TEXT` 51x18 — "Reports"
+      - Button `FRAME` 260x38
+        - calendar `INSTANCE` 16x16
+          - calendar `FRAME` 16x16
+            - Vector `VECTOR` 0x3
+            - Vector `VECTOR` 0x3
+            - Vector `VECTOR` 12x12
+            - Vector `VECTOR` 12x0
+        - Schedule `TEXT` 60x18 — "Schedule"
+    - Frame 156 `FRAME` 260x147
+      - Frame 157 `FRAME` 260x21
+        - TEAM MANAGEMENT `TEXT` 100x13 — "TEAM MANAGEMENT"
+      - Button `FRAME` 260x38
+        - users `INSTANCE` 16x16
+          - users `FRAME` 16x16
+            - Vector `VECTOR` 9x4
+            - Vector `VECTOR` 2x5
+            - Vector `VECTOR` 2x4
+            - Vector `VECTOR` 5x5
+        - Employees `TEXT` 70x18 — "Employees"
+      - Button `FRAME` 260x38
+        - chart-pie `INSTANCE` 16x16
+          - chart-pie `FRAME` 16x16
+            - Vector `VECTOR` 7x7
+            - Vector `VECTOR` 13x13
+        - Performance `TEXT` 82x18 — "Performance"
+      - Button `FRAME` 260x38
+        - mail `INSTANCE` 16x16
+          - mail `FRAME` 16x16
+            - Vector `VECTOR` 13x4
+            - Vector `VECTOR` 13x11
+        - Messages `TEXT` 66x18 — "Messages"
+    - Frame 157 `FRAME` 260x288
+      - Frame 157 `FRAME` 260x21
+        - OTHER `TEXT` 33x13 — "OTHER"
+      - Button `FRAME` 260x38
+        - cog `INSTANCE` 16x16
+          - cog `FRAME` 16x16
+            - Vector `VECTOR` 3x5
+            - Vector `VECTOR` 3x5
+            - Vector `VECTOR` 0x1
+            - Vector `VECTOR` 0x1
+            - Vector `VECTOR` 5x0
+            - Vector `VECTOR` 1x1
+            - Vector `VECTOR` 1x1
+            - Vector `VECTOR` 1x0
+            - Vector `VECTOR` 1x1
+            - Vector `VECTOR` 1x1
+            - Vector `VECTOR` 1x1
+            - Vector `VECTOR` 1x1
+            - Vector `VECTOR` 3x3
+            - Vector `VECTOR` 11x11
+        - Settings `TEXT` 54x18 — "Settings"
+      - Button `FRAME` 260x38
+        - handshake `INSTANCE` 16x16
+          - handshake `FRAME` 16x16
+            - Vector `VECTOR` 4x2
+            - Vector `VECTOR` 9x9
+            - Vector `VECTOR` 1x7
+            - Vector `VECTOR` 7x12
+            - Vector `VECTOR` 5x0
+        - Support `TEXT` 52x18 — "Support"
+    - Button `FRAME` 260x38
+      - arrow-right-left `INSTANCE` 16x16
+        - arrow-right-left `FRAME` 16x16
+          - Vector `VECTOR` 3x5
+          - Vector `VECTOR` 11x0
+          - Vector `VECTOR` 3x5
+          - Vector `VECTOR` 11x0
+      - Switch User `TEXT` 78x18 — "Switch User"
+    - Button `FRAME` 260x38
+      - log-out `INSTANCE` 16x16
+        - log-out `FRAME` 16x16
+          - Vector `VECTOR` 3x7
+          - Vector `VECTOR` 8x0
+          - Vector `VECTOR` 4x12
+      - Log Out `TEXT` 51x18 — "Log Out"
+  - Main Dash `INSTANCE` 1366x935
+    - Frame 20 `FRAME` 1306x87
+      - Frame 178 `FRAME` 346x47
+        - Dashboard `TEXT` 105x26 — "Dashboard"
+        - An overview of your farm and employee activity `TEXT` 346x21 — "An overview of your farm and employee activity"
+      - Frame 183 `FRAME` 370x34
+        - Frame 176 `FRAME` 370x34
+          - search `INSTANCE` 16x16
+            - search `FRAME` 16x16
+              - Vector `VECTOR` 3x3
+              - Vector `VECTOR` 11x11
+          - Search `TEXT` 46x18 — "Search"
+    - Frame 176 `FRAME` 1306x115
+      - Frame 120 `FRAME` 429x115
+        - Frame 124 `FRAME` 162x21
+          - calendar `INSTANCE` 16x16
+            - calendar `FRAME` 16x16
+              - Vector `VECTOR` 0x3
+              - Vector `VECTOR` 0x3
+              - Vector `VECTOR` 12x12
+              - Vector `VECTOR` 12x0
+          - Todays Recordings `TEXT` 138x21 — "Todays Recordings"
+        - Frame 126 `FRAME` 90x34
+          - 5 `TEXT` 31x34 — "5"
+          - 1 New `TEXT` 39x18 — "1 New"
+      - Frame 116 `FRAME` 429x115
+        - Frame 124 `FRAME` 135x21
+          - clipboard-pen `INSTANCE` 16x16
+            - clipboard-pen `FRAME` 16x16
+              - Vector `VECTOR` 5x3
+              - Vector `VECTOR` 5x12
+              - Vector `VECTOR` 3x6
+              - Vector `VECTOR` 7x7
+          - Active Workers `TEXT` 111x21 — "Active Workers"
+        - Frame 126 `FRAME` 50x34
+          - 12 `TEXT` 50x34 — "12"
+      - Frame 121 `FRAME` 429x115
+        - Frame 124 `FRAME` 169x21
+          - percent `INSTANCE` 16x16
+            - percent `FRAME` 16x16
+              - Vector `VECTOR` 9x9
+              - Vector `VECTOR` 3x3
+              - Vector `VECTOR` 3x3
+          - Response Accuracy `TEXT` 145x21 — "Response Accuracy"
+        - Frame 126 `FRAME` 63x34
+          - 90 `TEXT` 63x34 — "90"
+    - Frame 32 `FRAME` 1306x713
+      - Frame 179 `FRAME` 1306x74
+        - Frame 184 `FRAME` 197x21
+          - audio-lines `INSTANCE` 16x16
+            - audio-lines `FRAME` 16x16
+              - Vector `VECTOR` 0x2
+              - Vector `VECTOR` 0x7
+              - Vector `VECTOR` 0x12
+              - Vector `VECTOR` 0x5
+              - Vector `VECTOR` 0x9
+              - Vector `VECTOR` 0x2
+          - New Employee Logs (4) `TEXT` 171x21 — "New Employee Logs (4)"
+        - Frame 180 `FRAME` 425x34
+          - Frame 179 `FRAME` 89x34
+            - x `INSTANCE` 16x16
+              - x `FRAME` 16x16
+                - Vector `VECTOR` 8x8
+                - Vector `VECTOR` 8x8
+            - Date `TEXT` 31x18 — "Date"
+          - Frame 180 `FRAME` 86x34
+            - list-filter `INSTANCE` 16x16
+              - list-filter `FRAME` 16x16
+                - Vector `VECTOR` 13x0
+                - Vector `VECTOR` 8x0
+                - Vector `VECTOR` 4x0
+            - Sort `TEXT` 28x18 — "Sort"
+          - Frame 181 `FRAME` 129x34
+            - x `INSTANCE` 16x16
+              - x `FRAME` 16x16
+                - Vector `VECTOR` 8x8
+                - Vector `VECTOR` 8x8
+            - This Month `TEXT` 71x18 — "This Month"
+          - Frame 177 `FRAME` 91x34
+            - funnel `INSTANCE` 16x16
+              - funnel `FRAME` 16x16
+                - Vector `VECTOR` 13x13
+            - Filter `TEXT` 33x18 — "Filter"
+      - Frame 160 `FRAME` 1306x58
+        - Frame 172 `FRAME` 56x16
+          - square `INSTANCE` 16x16
+            - square `FRAME` 16x16
+              - Vector `VECTOR` 12x12
+        - Frame 171 `FRAME` 224x58
+          - EMPLOYEE `TEXT` 72x18 — "EMPLOYEE"
+        - Frame 170 `FRAME` 224x58
+          - ACTIVITY `TEXT` 58x18 — "ACTIVITY"
+        - Frame 169 `FRAME` 224x58
+          - DATE `TEXT` 34x18 — "DATE"
+        - Frame 168 `FRAME` 224x58
+          - FIELD `TEXT` 38x18 — "FIELD"
+        - Frame 173 `FRAME` 224x58
+          - TIME `TEXT` 32x18 — "TIME"
+        - Frame 167 `FRAME` 92x58
+          - Frame 176 `FRAME` 84x34
+            - View All `TEXT` 52x18 — "View All"
+      - Frame 181 `FRAME` 1306x581
+        - Frame 161 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Isaac Wang `TEXT` 75x18 — "Isaac Wang"
+          - Frame 163 `FRAME` 224x58
+            - Spraying `TEXT` 57x18 — "Spraying"
+          - Frame 164 `FRAME` 224x58
+            - April 19, 2026 `TEXT` 88x18 — "April 19, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD A `TEXT` 50x18 — "FIELD A"
+          - Frame 174 `FRAME` 224x58
+            - 6:00 AM - 10:40 AM `TEXT` 131x18 — "6:00 AM - 10:40 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 69x34
+              - Close `TEXT` 37x18 — "Close"
+        - Frame 148 `FRAME` 1306x477
+          - Frame 186 `FRAME` 592x397
+            - Group 1 `GROUP` 592x81
+              - Line 1 `LINE` 0x7
+              - Line 49 `LINE` 0x11
+              - Line 25 `LINE` 0x7
+              - Line 50 `LINE` 0x7
+              - Line 13 `LINE` 0x11
+              - Line 51 `LINE` 0x7
+              - Line 26 `LINE` 0x14
+              - Line 52 `LINE` 0x7
+              - Line 7 `LINE` 0x35
+              - Line 53 `LINE` 0x81
+              - Line 27 `LINE` 0x35
+              - Line 54 `LINE` 0x7
+              - Line 14 `LINE` 0x9
+              - Line 55 `LINE` 0x7
+              - Line 28 `LINE` 0x11
+              - Line 56 `LINE` 0x7
+              - Line 4 `LINE` 0x44
+              - Line 57 `LINE` 0x11
+              - Line 29 `LINE` 0x18
+              - Line 58 `LINE` 0x7
+              - Line 15 `LINE` 0x11
+              - Line 59 `LINE` 0x7
+              - Line 30 `LINE` 0x16
+              - Line 60 `LINE` 0x7
+              - Line 8 `LINE` 0x11
+              - Line 61 `LINE` 0x7
+              - Line 31 `LINE` 0x35
+              - Line 62 `LINE` 0x7
+              - Line 16 `LINE` 0x11
+              - Line 63 `LINE` 0x7
+              - Line 32 `LINE` 0x11
+              - Line 64 `LINE` 0x7
+              - Line 2 `LINE` 0x25
+              - Line 65 `LINE` 0x11
+              - Line 33 `LINE` 0x9
+              - Line 66 `LINE` 0x7
+              - Line 17 `LINE` 0x11
+              - Line 67 `LINE` 0x7
+              - Line 34 `LINE` 0x11
+              - Line 68 `LINE` 0x7
+              - Line 9 `LINE` 0x25
+              - Line 69 `LINE` 0x7
+              - Line 35 `LINE` 0x63
+              - Line 70 `LINE` 0x7
+              - Line 18 `LINE` 0x11
+              - Line 71 `LINE` 0x7
+              - Line 36 `LINE` 0x11
+              - Line 72 `LINE` 0x7
+              - Line 5 `LINE` 0x51
+              - Line 73 `LINE` 0x11
+              - Line 37 `LINE` 0x25
+              - Line 74 `LINE` 0x7
+              - Line 19 `LINE` 0x11
+              - Line 75 `LINE` 0x7
+              - Line 38 `LINE` 0x25
+              - Line 76 `LINE` 0x7
+              - Line 10 `LINE` 0x12
+              - Line 77 `LINE` 0x7
+              - Line 39 `LINE` 0x26
+              - Line 78 `LINE` 0x7
+              - Line 20 `LINE` 0x11
+              - Line 79 `LINE` 0x7
+              - Line 40 `LINE` 0x11
+              - Line 80 `LINE` 0x7
+              - Line 3 `LINE` 0x35
+              - Line 81 `LINE` 0x11
+              - Line 41 `LINE` 0x14
+              - Line 82 `LINE` 0x7
+              - Line 21 `LINE` 0x11
+              - Line 83 `LINE` 0x7
+              - Line 42 `LINE` 0x9
+              - Line 84 `LINE` 0x7
+              - Line 11 `LINE` 0x12
+              - Line 85 `LINE` 0x7
+              - Line 43 `LINE` 0x49
+              - Line 86 `LINE` 0x7
+              - Line 22 `LINE` 0x11
+              - Line 87 `LINE` 0x7
+              - Line 44 `LINE` 0x11
+              - Line 88 `LINE` 0x7
+              - Line 6 `LINE` 0x44
+              - Line 89 `LINE` 0x11
+              - Line 45 `LINE` 0x18
+              - Line 90 `LINE` 0x7
+              - Line 23 `LINE` 0x11
+              - Line 91 `LINE` 0x7
+              - Line 46 `LINE` 0x40
+              - Line 92 `LINE` 0x7
+              - Line 12 `LINE` 0x11
+              - Line 93 `LINE` 0x7
+              - Line 47 `LINE` 0x21
+              - Line 94 `LINE` 0x7
+              - Line 24 `LINE` 0x11
+              - Line 95 `LINE` 0x7
+              - Line 48 `LINE` 0x11
+              - Line 96 `LINE` 0x7
+              - Line 97 `LINE` 0x7
+              - Line 98 `LINE` 0x7
+            - Frame 185 `FRAME` 592x104
+              - Frame 117 `FRAME` 592x42
+                - play `INSTANCE` 16x16
+                  - play `FRAME` 16x16
+                    - Vector `VECTOR` 11x12
+                - Play Recording `TEXT` 110x21 — "Play Recording"
+              - Frame 118 `FRAME` 592x42
+                - star `INSTANCE` 16x16
+                  - star `FRAME` 16x16
+                    - Vector `VECTOR` 13x13
+                - Add Tag `TEXT` 60x21 — "Add Tag"
+            - Frame 115 `FRAME` 592x172
+              - Frame 114 `FRAME` 592x172
+                - Summary `TEXT` 71x21 — "Summary"
+                - "Offline guided voice log created at 2026-04-08T22:01:01.711Z. Question (activity_type): What type of activity was this — spraying, fertilizing, planting, irrigating, harvesting, scouting, pruning, soil work, or equipment maintenance? Answer: I'm leaving first, I'm going to go home. Question (field_block): Where were you working (field, block, or area)? Answer: yes, in one part and then 130 and 200 yes, and 130 for uh 160 and no, this yes no, no, uhm no no I remember, uhm uhm uhm, no, I don't remember anything. `TEXT` 592x147 — ""Offline guided voice log created at 2026-04-08T22:01:01.711Z. Questio"
+          - Frame 187 `FRAME` 594x397
+            - Frame 121 `FRAME` 594x335
+              - Rectangle 33 `RECTANGLE` 88x52
+              - Ellipse 12 `ELLIPSE` 17x17
+            - Frame 117 `FRAME` 594x42
+              - expand `INSTANCE` 16x16
+                - expand `FRAME` 16x16
+                  - Vector `VECTOR` 4x4
+                  - Vector `VECTOR` 4x4
+                  - Vector `VECTOR` 3x3
+                  - Vector `VECTOR` 3x3
+                  - Vector `VECTOR` 3x3
+                  - Vector `VECTOR` 4x4
+                  - Vector `VECTOR` 3x3
+                  - Vector `VECTOR` 4x4
+              - Expand Map `TEXT` 91x21 — "Expand Map"
+        - Frame 162 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Maya Patel `TEXT` 71x18 — "Maya Patel"
+          - Frame 163 `FRAME` 224x58
+            - Harvesting `TEXT` 70x18 — "Harvesting"
+          - Frame 164 `FRAME` 224x58
+            - April 20, 2026 `TEXT` 92x18 — "April 20, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD B `TEXT` 51x18 — "FIELD B"
+          - Frame 174 `FRAME` 224x58
+            - 7:30 AM - 11:15 AM `TEXT` 121x18 — "7:30 AM - 11:15 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 163 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Liam Johnson `TEXT` 90x18 — "Liam Johnson"
+          - Frame 163 `FRAME` 224x58
+            - Planting `TEXT` 54x18 — "Planting"
+          - Frame 164 `FRAME` 224x58
+            - April 21, 2026 `TEXT` 88x18 — "April 21, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD C `TEXT` 51x18 — "FIELD C"
+          - Frame 174 `FRAME` 224x58
+            - 8:00 AM - 12:00 PM `TEXT` 130x18 — "8:00 AM - 12:00 PM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 164 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Sophia Lee `TEXT` 71x18 — "Sophia Lee"
+          - Frame 163 `FRAME` 224x58
+            - Irrigation `TEXT` 58x18 — "Irrigation"
+          - Frame 164 `FRAME` 224x58
+            - April 22, 2026 `TEXT` 92x18 — "April 22, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD D `TEXT` 51x18 — "FIELD D"
+          - Frame 174 `FRAME` 224x58
+            - 6:30 AM - 9:30 AM `TEXT` 124x18 — "6:30 AM - 9:30 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 165 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Ethan Kim `TEXT` 66x18 — "Ethan Kim"
+          - Frame 163 `FRAME` 224x58
+            - Fertilizing `TEXT` 64x18 — "Fertilizing"
+          - Frame 164 `FRAME` 224x58
+            - April 23, 2026 `TEXT` 91x18 — "April 23, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD E `TEXT` 50x18 — "FIELD E"
+          - Frame 174 `FRAME` 224x58
+            - 5:45 AM - 9:00 AM `TEXT` 124x18 — "5:45 AM - 9:00 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 166 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Olivia Martinez `TEXT` 96x18 — "Olivia Martinez"
+          - Frame 163 `FRAME` 224x58
+            - Weeding `TEXT` 56x18 — "Weeding"
+          - Frame 164 `FRAME` 224x58
+            - April 24, 2026 `TEXT` 91x18 — "April 24, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD F `TEXT` 49x18 — "FIELD F"
+          - Frame 174 `FRAME` 224x58
+            - 6:15 AM - 10:00 AM `TEXT` 127x18 — "6:15 AM - 10:00 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 167 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Noah Brown `TEXT` 79x18 — "Noah Brown"
+          - Frame 163 `FRAME` 224x58
+            - Pruning `TEXT` 50x18 — "Pruning"
+          - Frame 164 `FRAME` 224x58
+            - April 25, 2026 `TEXT` 92x18 — "April 25, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD G `TEXT` 51x18 — "FIELD G"
+          - Frame 174 `FRAME` 224x58
+            - 7:00 AM - 11:30 AM `TEXT` 125x18 — "7:00 AM - 11:30 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 168 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Emma Davis `TEXT` 80x18 — "Emma Davis"
+          - Frame 163 `FRAME` 224x58
+            - Monitoring `TEXT` 69x18 — "Monitoring"
+          - Frame 164 `FRAME` 224x58
+            - April 26, 2026 `TEXT` 92x18 — "April 26, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD H `TEXT` 51x18 — "FIELD H"
+          - Frame 174 `FRAME` 224x58
+            - 8:15 AM - 12:45 PM `TEXT` 125x18 — "8:15 AM - 12:45 PM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 169 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - James Wilson `TEXT` 90x18 — "James Wilson"
+          - Frame 163 `FRAME` 224x58
+            - Soil Testing `TEXT` 75x18 — "Soil Testing"
+          - Frame 164 `FRAME` 224x58
+            - April 27, 2026 `TEXT` 89x18 — "April 27, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD I `TEXT` 45x18 — "FIELD I"
+          - Frame 174 `FRAME` 224x58
+            - 6:00 AM - 9:00 AM `TEXT` 126x18 — "6:00 AM - 9:00 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 170 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Isabella Garcia `TEXT` 94x18 — "Isabella Garcia"
+          - Frame 163 `FRAME` 224x58
+            - Seeding `TEXT` 53x18 — "Seeding"
+          - Frame 164 `FRAME` 224x58
+            - April 28, 2026 `TEXT` 92x18 — "April 28, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD J `TEXT` 49x18 — "FIELD J"
+          - Frame 174 `FRAME` 224x58
+            - 7:45 AM - 11:00 AM `TEXT` 124x18 — "7:45 AM - 11:00 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+        - Frame 171 `FRAME` 1306x58
+          - Frame 173 `FRAME` 56x16
+            - square `INSTANCE` 16x16
+              - square `FRAME` 16x16
+                - Vector `VECTOR` 12x12
+          - Frame 162 `FRAME` 224x58
+            - Benjamin Moore `TEXT` 104x18 — "Benjamin Moore"
+          - Frame 163 `FRAME` 224x58
+            - Pest Control `TEXT` 80x18 — "Pest Control"
+          - Frame 164 `FRAME` 224x58
+            - April 29, 2026 `TEXT` 92x18 — "April 29, 2026"
+          - Frame 165 `FRAME` 224x58
+            - FIELD K `TEXT` 50x18 — "FIELD K"
+          - Frame 174 `FRAME` 224x58
+            - 6:30 AM - 10:30 AM `TEXT` 130x18 — "6:30 AM - 10:30 AM"
+          - Frame 166 `FRAME` 92x58
+            - Frame 175 `FRAME` 64x34
+              - View `TEXT` 32x18 — "View"
+
+## Layout tree — Dashboard 1:1481 (default, rows collapsed)
+
+- Dashboard `FRAME` 1676x955
+  - Toph Navigation Bar `INSTANCE` 280x935
+    - Frame 152 `FRAME` 260x50
+      - Frame 153 `FRAME` 129x42
+      - inbox `INSTANCE` 16x16
+    - Frame 154 `FRAME` 260x147
+      - Frame 157 `FRAME` 260x21
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+    - Frame 155 `FRAME` 260x147
+      - Frame 157 `FRAME` 260x21
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+    - Frame 156 `FRAME` 260x147
+      - Frame 157 `FRAME` 260x21
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+    - Frame 157 `FRAME` 260x288
+      - Frame 157 `FRAME` 260x21
+      - Button `FRAME` 260x38
+      - Button `FRAME` 260x38
+    - Button `FRAME` 260x38
+      - arrow-right-left `INSTANCE` 16x16
+      - Switch User `TEXT` 78x18
+    - Button `FRAME` 260x38
+      - log-out `INSTANCE` 16x16
+      - Log Out `TEXT` 51x18
+  - Main Dash `INSTANCE` 1366x935
+    - Frame 20 `FRAME` 1306x87
+      - Frame 178 `FRAME` 346x47
+      - Frame 183 `FRAME` 370x34
+    - Frame 176 `FRAME` 1306x115
+      - Frame 120 `FRAME` 429x115
+      - Frame 116 `FRAME` 429x115
+      - Frame 121 `FRAME` 429x115
+    - Frame 32 `FRAME` 1306x364
+      - Frame 179 `FRAME` 1306x74
+      - Frame 160 `FRAME` 1306x58
+      - Frame 181 `FRAME` 1306x232
