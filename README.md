@@ -11,9 +11,14 @@ npm run dev   # http://localhost:3000
 
 ## Structure
 
-- `app/` — layout, globals (design tokens from `ref/design-tokens.*`), dashboard page
-- `components/` — `Sidebar`, `StatCard`, `LogsPanel` (table + expandable log detail), `Waveform`, `FieldMap` (self-contained SVG satellite placeholder), `Icon` (serves `public/icons/*.svg` copied from `ref/icons/`)
-- `lib/` — `types.ts`, `mock-data.ts` (Figma rows), `supabase.ts` (browser client, null-safe), `data.ts` (`getDashboardData()` — single swap point)
+- `app/api/` — Node resource endpoints, the only place that talks to Postgres:
+  - `GET /api/recordings[?status&activity&field&search&from&to&sort&limit&offset]` — the new-recordings feed behind New Employee Logs
+  - `GET /api/recordings/:id` (+ `PATCH {status}`) — expanded log detail (transcript, guided Q&A, tags) and review actions
+  - `GET|POST /api/recordings/:id/tags` (+ `DELETE ?tag_id=`) — Add Tag button
+  - `GET /api/stats` — stat cards (today's recordings/new, active workers, accuracy)
+  - `GET /api/meta` — farm/role + activity/field/tag filter options
+  - `GET /api/employees` — active crew list
+- `lib/` — `types.ts`, `mock-data.ts` (fallback rows), `data.ts` (typed frontend client over the endpoints above), `server/` (server-only Supabase client + row mapping)
 - `public/icons/` — icons copied from `ref/icons/`
 
 ## Supabase / Postgres
@@ -27,6 +32,6 @@ Migrations applied (via Supabase MCP):
 - `seed_figma_data` — 11 employees/fields/activities/logs from the Figma refs (+2 guided Q&A rows)
 - `dashboard_views` — `v_dashboard_stats`, `v_response_accuracy_daily`
 
-`getDashboardData()` in `lib/data.ts` queries `voice_logs` with joins and falls back to mock data on any error — no component changes needed.
+`getDashboardData()` in `lib/data.ts` fans out to `/api/recordings` + `/api/stats` + `/api/meta` in parallel and assembles one `DashboardData` for `<Dashboard>` — the frontend composes resources, so no aggregate `/api/dashboard` endpoint. Each route falls back to mock data when Supabase is unconnected; components never import Supabase directly.
 
 Next steps: replace `FieldMap` with real tiles (Mapbox/MapLibre), wire `Waveform` + Play to stored `audio_url`, and add `audio_logs` storage bucket.
