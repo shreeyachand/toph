@@ -1,19 +1,12 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import TabShell from "@/components/TabShell";
 import EmployeesTab from "@/components/tabs/EmployeesTab";
-import { fetchMeta, type MetaResponse } from "@/lib/data";
+import { getMeta } from "@/lib/server/queries";
 
-export default function EmployeesPage() {
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    fetchMeta().then(setMeta).catch(() => {});
-  }, []);
-
-  if (!meta) return <p className="p-6 text-[14px] text-[#808080]">Loading employees…</p>;
-
+/** Server page: meta (farm/role) ships with the HTML, no client waterfall. */
+export default async function EmployeesPage() {
+  const meta = await getMeta();
   return (
     <TabShell farm={meta.farm} role={meta.role} active="employees">
       <EmployeesTab />

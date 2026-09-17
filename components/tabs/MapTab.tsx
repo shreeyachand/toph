@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import FieldMap from "../FieldMap";
+import dynamic from "next/dynamic";
 import Icon from "../Icon";
 import { Loading, PageHeader } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
+
+// Split maplibre-gl (~750KB) into its own chunk so it only downloads when the
+// user visits /map — never as part of the shared initial bundle.
+const FieldMap = dynamic(() => import("../FieldMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[62vh] min-h-[440px] w-full items-center justify-center rounded-xl border border-[#ececec] bg-[#2c3a26] text-[13px] text-[#cfcfcf]">
+      Loading map…
+    </div>
+  ),
+});
 
 interface FieldRow {
   id: string; name: string; block: string | null; acreage: number | string | null;

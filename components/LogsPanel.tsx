@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { fetchAudioUrl } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
-import FieldMap, { type MapField } from "./FieldMap";
+import type { MapField } from "./FieldMap";
 import Icon from "./Icon";
 import Waveform from "./Waveform";
 import {
@@ -24,6 +25,18 @@ import {
   useExpandedIds,
   type MenuCoords,
 } from "./DataTable";
+
+// maplibre-gl (~750KB) ships only when a map actually renders — not with the
+// initial dashboard bundle. Both the per-log mini-map and the expanded modal
+// share this split chunk.
+const FieldMap = dynamic(() => import("./FieldMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[340px] w-full items-center justify-center rounded-xl border border-[#ececec] bg-[#2c3a26] text-[13px] text-[#cfcfcf]">
+      Loading map…
+    </div>
+  ),
+});
 
 // Re-export shared table primitives for tabs that still import them here.
 export { Pill, MenuShell, menuCoordsFor, type MenuCoords } from "./DataTable";

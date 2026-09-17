@@ -1,33 +1,22 @@
-"use client";
-
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import TabShell from "@/components/TabShell";
 import ScheduleTab from "@/components/tabs/ScheduleTab";
-import { fetchMeta, type MetaResponse } from "@/lib/data";
+import { getMeta } from "@/lib/server/queries";
 
-function ScheduleContent() {
-  const searchParams = useSearchParams();
-  const person = searchParams.get("person");
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    fetchMeta().then(setMeta).catch(() => {});
-  }, []);
-
-  if (!meta) return <p className="p-6 text-[14px] text-[#808080]">Loading schedule…</p>;
-
+/**
+ * Server page: `person` comes from searchParams on the server (no
+ * useSearchParams/Suspense boundary needed) and meta ships with the HTML.
+ */
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ person?: string }>;
+}) {
+  const [{ person }, meta] = await Promise.all([searchParams, getMeta()]);
   return (
     <TabShell farm={meta.farm} role={meta.role} active="schedule">
-      <ScheduleTab key={person ?? "all"} initialPerson={person} />
+      <ScheduleTab key={person ?? "all"} initialPerson={person ?? null} />
     </TabShell>
-  );
-}
-
-export default function SchedulePage() {
-  return (
-    <Suspense fallback={<p className="p-6 text-[14px] text-[#808080]">Loading schedule…</p>}>
-      <ScheduleContent />
-    </Suspense>
   );
 }
