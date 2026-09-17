@@ -19,8 +19,9 @@ import {
 } from "../DataTable";
 import { Loading, PageHeader } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
+import { REPORT_TYPES, buildReportTitle } from "@/lib/reports";
 
-interface Report { id: string; title: string; type: string; created_at: string; generated_by: string; }
+interface Report { id: string; title: string; type: "week" | "month"; created_at: string; generated_by: string; }
 
 type SortMode = "newest" | "oldest" | "title-az" | "type-az";
 type OpenMenu = null | "sort" | "filter";
@@ -43,9 +44,14 @@ export default function ReportsTab() {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
     useAnchoredMenus(openMenu, setOpenMenu);
-  const [title, setTitle] = useState("");
-  const [newType, setNewType] = useState("weekly");
+  const [newType, setNewType] = useState<(typeof REPORT_TYPES)[number]>("week");
+  const [title, setTitle] = useState(() => buildReportTitle("week"));
   const [saving, setSaving] = useState(false);
+
+  const handleTypeChange = (t: typeof newType) => {
+    setNewType(t);
+    setTitle(buildReportTitle(t));
+  };
 
   useEffect(() => {
     fetch("/api/reports", { cache: "no-store" })
@@ -84,7 +90,7 @@ export default function ReportsTab() {
       });
       const j = await res.json();
       if (j.data) setReports((prev) => [j.data, ...(prev ?? [])]);
-      setTitle("");
+      setTitle(buildReportTitle(newType));
     } finally { setSaving(false); }
   };
 
@@ -96,7 +102,7 @@ export default function ReportsTab() {
 
   return (
     <div>
-      <PageHeader title="Reports" subtitle="Saved exports and summaries for auditors and payroll" query={query} setQuery={setQuery} live={live} />
+      <PageHeader title="Reports" subtitle="Weekly and monthly activity summaries" query={query} setQuery={setQuery} live={live} />
       <StatGrid cols={3}>
         <StatCard icon="files" label="Saved Reports" value={reports.length} />
         <StatCard icon="calendar" label="This Month" value={reports.filter((r) => r.created_at.startsWith("2026-04")).length} />
@@ -111,14 +117,14 @@ export default function ReportsTab() {
           </p>
           <label className="block flex-1">
             <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">Title</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Weekly Spray Summary"
+            <input value={title} onChange={(e) => setTitle(e.target.value)}
               className="w-full rounded-lg border border-[#e3e3e3] px-3 py-2 text-[14px] outline-none focus:border-[#b3b3b3]" />
           </label>
           <label className="block lg:w-48">
             <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">Type</span>
-            <select value={newType} onChange={(e) => setNewType(e.target.value)}
+            <select value={newType} onChange={(e) => handleTypeChange(e.target.value as typeof newType)}
               className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] outline-none focus:border-[#b3b3b3]">
-              {["weekly", "compliance", "accuracy", "payroll", "custom"].map((t) => <option key={t} value={t}>{t}</option>)}
+              {REPORT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
           <button onClick={create} disabled={saving || !title.trim()}
