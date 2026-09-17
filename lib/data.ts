@@ -167,10 +167,13 @@ export function fetchMeta(): Promise<MetaResponse> {
  * Dashboard composition: fans out to the three resource endpoints in
  * parallel. Keeps <Dashboard>/<LogsPanel> unchanged — they still receive one
  * DashboardData object, now assembled in the frontend from resources.
+ *
+ * The dashboard feed is all new logs (any date); the stat cards stay
+ * today-scoped. The Activity Logs tab fetches the full history.
  */
 export async function getDashboardData(): Promise<DashboardData> {
   const [recordings, stats, meta] = await Promise.all([
-    fetchRecordings({ sort: "newest", limit: 100 }),
+    fetchRecordings({ sort: "newest", limit: 100, status: ["new"] }),
     fetchStats(),
     fetchMeta(),
   ]);

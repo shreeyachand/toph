@@ -15,6 +15,7 @@ export default function ActivityLogsTab() {
   const [rec, setRec] = useState<RecordingsResponse | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
 
+  // Full history by default — no status filter when "all" is selected.
   useEffect(() => {
     fetchRecordings({ sort: "newest", limit: 200, ...(status === "all" ? {} : { status: [status] }) })
       .then(setRec)
@@ -23,6 +24,13 @@ export default function ActivityLogsTab() {
   useEffect(() => {
     fetchStats().then(setStats).catch(() => {});
   }, []);
+
+  const reload = () => {
+    fetchRecordings({ sort: "newest", limit: 200, ...(status === "all" ? {} : { status: [status] }) })
+      .then(setRec)
+      .catch(() => {});
+    fetchStats().then(setStats).catch(() => {});
+  };
 
   const counts = useMemo(() => {
     const logs = rec?.data ?? [];
@@ -75,7 +83,13 @@ export default function ActivityLogsTab() {
         ))}
       </div>
       <div className="mt-4">
-        <LogsPanel logs={counts.logs} searchQuery={query} hideEmployee={isEmployee} />
+        <LogsPanel
+          logs={counts.logs}
+          searchQuery={query}
+          hideEmployee={isEmployee}
+          title={isEmployee ? "My Activity Logs" : "All Employee Logs"}
+          onStatusChanged={reload}
+        />
       </div>
     </div>
   );

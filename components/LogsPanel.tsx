@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { fetchAudioUrl } from "@/lib/data";
+import { fetchAudioUrl, updateRecordingStatus } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import type { MapField } from "./FieldMap";
 import Icon from "./Icon";
@@ -328,13 +328,29 @@ export default function LogsPanel({
   logs,
   searchQuery,
   hideEmployee = false,
+  title,
+  statusFilter = "all",
+  onStatusChanged,
 }: {
   logs: EmployeeLog[];
   searchQuery: string;
   /** Employee view: everyone listed is the viewer, so drop that column. */
   hideEmployee?: boolean;
+  /** Panel heading override. Defaults to "All Employee Logs" (or "My Logs"). */
+  title?: string;
+  /** "new" hides reviewed/flagged logs (dashboard); "all" shows everything (activity tab). */
+  statusFilter?: "all" | "new";
+  /** Parent refresh hook after a bulk status change succeeds. */
+  onStatusChanged?: (ids: string[]) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // One state per log: a log is new, reviewed, OR flagged — never two at once.
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<string, "reviewed" | "flagged">
+  >({});
+  const [pendingAction, setPendingAction] = useState<"reviewed" | "flagged" | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   // Field polygons for the per-log mini-map (matched by field name).
@@ -355,20 +371,54 @@ export default function LogsPanel({
   const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
     useAnchoredMenus(openMenu, setOpenMenu);
 
+  // Local status changes apply instantly (mock + live) and — in "new"
+  // mode — drop the row so it no longer shows up as new.
+  const effectiveLogs = useMemo(
+    () =>
+      logs.map((l) => {
+        const override = statusOverrides[l.id];
+        return override ? { ...l, status: override, isNew: false } : l;
+      }),
+    [logs, statusOverrides]
+  );
+  const feedLogs = useMemo(
+    () =>
+      statusFilter === "new"
+        ? effectiveLogs.filter((l) => l.status === "new" || l.isNew)
+        : effectiveLogs,
+    [effectiveLogs, statusFilter]
+  );
+
+  // Drop selections for rows that left the feed (e.g. just marked reviewed
+  // in "new" mode, or a parent refetch).
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(feedLogs.map((l) => l.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [feedLogs]);
+
   // Anchor relative date filters to the newest log so mock + live data behave.
   const anchorIso = useMemo(
-    () => logs.reduce((max, l) => (l.isoDate > max ? l.isoDate : max), logs[0]?.isoDate ?? ""),
-    [logs]
+    () => feedLogs.reduce((max, l) => (l.isoDate > max ? l.isoDate : max), feedLogs[0]?.isoDate ?? ""),
+    [feedLogs]
   );
   const anchorMonth = anchorIso.slice(0, 7);
 
   const activities = useMemo(
-    () => Array.from(new Set(logs.map((l) => l.activity))).sort(),
-    [logs]
+    () => Array.from(new Set(feedLogs.map((l) => l.activity))).sort(),
+    [feedLogs]
   );
   const fields = useMemo(
-    () => Array.from(new Set(logs.map((l) => l.field))).sort(),
-    [logs]
+    () => Array.from(new Set(feedLogs.map((l) => l.field))).sort(),
+    [feedLogs]
   );
 
   const q = searchQuery.trim().toLowerCase();
@@ -384,7 +434,7 @@ export default function LogsPanel({
     return diffDays >= 0 && diffDays < 7;
   };
 
-  const visible = logs
+  const visible = feedLogs
     .filter((log) =>
       q
         ? [log.employee, log.activity, log.field, log.date]
@@ -422,18 +472,17 @@ export default function LogsPanel({
   const rowGrid = hideEmployee
     ? "grid-cols-[28px_1fr] md:grid-cols-[44px_1fr_1fr_0.8fr_1.2fr_92px]"
     : "grid-cols-[28px_1fr] md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]";
-  const panelTitle = hideEmployee
-    ? "My Logs"
-    : `New Employee Log${visible.length === 1 ? "" : "s"}`;
+  const panelTitle =
+    title ?? (hideEmployee ? "My Logs" : `All Employee Log${visible.length === 1 ? "" : "s"}`);
 
   // Pre-expand the first log on first load (previous default behavior).
   const [seeded, setSeeded] = useState(false);
   useEffect(() => {
-    if (!seeded && logs[0]) {
+    if (!seeded && feedLogs[0]) {
       setSeeded(true);
-      setExpandedIds(new Set([logs[0].id]));
+      setExpandedIds(new Set([feedLogs[0].id]));
     }
-  }, [logs, seeded, setExpandedIds]);
+  }, [feedLogs, seeded, setExpandedIds]);
 
   const activeFilterCount =
     (dateRange === "all" ? 0 : 1) +
@@ -466,6 +515,56 @@ export default function LogsPanel({
         ? new Set()
         : new Set(visible.map((l) => l.id))
     );
+  };
+
+  // Esc closes the status-change confirmation.
+  useEffect(() => {
+    if (!pendingAction) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPendingAction(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pendingAction]);
+
+  /**
+   * Bulk status change (reviewed / flagged). Writes through to Supabase via
+   * PATCH /api/recordings/:id (one per selected log) so the `voice_logs`
+   * rows flip state — not just local/mock state. A log holds exactly one
+   * state: new, reviewed, or flagged.
+   */
+  const confirmStatusChange = async () => {
+    const target = pendingAction;
+    const ids = Array.from(selected);
+    if (!target || ids.length === 0 || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) => updateRecordingStatus(id, target))
+      );
+      const succeeded = ids.filter((_, i) => results[i]?.status === "fulfilled");
+      const failed = ids.filter((_, i) => results[i]?.status !== "fulfilled");
+      if (succeeded.length === 0) throw new Error("all failed");
+      setStatusOverrides((prev) => {
+        const next = { ...prev };
+        for (const id of succeeded) next[id] = target;
+        return next;
+      });
+      setSelected(new Set(failed));
+      onStatusChanged?.(succeeded);
+      if (failed.length > 0) {
+        setSaveError(
+          `${succeeded.length} of ${ids.length} updated in Supabase — ${failed.length} failed. Please try again.`
+        );
+      } else {
+        setPendingAction(null);
+      }
+    } catch {
+      setSaveError("Couldn't update those logs. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -592,6 +691,45 @@ export default function LogsPanel({
             )}
       </div>
 
+      {/* Bulk action bar — appears once rows are checkboxed */}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-[#f0f0f0] bg-[#fafafa] px-4 py-3 sm:px-5">
+          <p className="text-[13px] text-[#4d4d4d]" aria-live="polite">
+            <span className="font-medium text-black">{selected.size}</span>{" "}
+            selected
+          </p>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="rounded-full border border-[#e3e3e3] bg-white px-3.5 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5]"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaveError(null);
+                setPendingAction("flagged");
+              }}
+              className="rounded-full border border-[#f3c2bd] bg-[#fdeaea] px-3.5 py-1.5 text-[13px] font-medium text-[#b3261e] hover:bg-[#fbdcdc]"
+            >
+              Flag ({selected.size})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaveError(null);
+                setPendingAction("reviewed");
+              }}
+              className="rounded-full bg-black px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-[#222]"
+            >
+              Mark as reviewed ({selected.size})
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Column headers */}
       <ColumnHeaders
         gridClass={headerGrid}
@@ -666,6 +804,73 @@ export default function LogsPanel({
           </EmptyRow>
         )}
       </TableRows>
+
+      {/* Confirm status change (reviewed / flagged) */}
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !saving && setPendingAction(null)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              pendingAction === "flagged"
+                ? `Flag ${selected.size} logs`
+                : `Mark ${selected.size} logs as reviewed`
+            }
+            className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#ececec] bg-white shadow-xl"
+          >
+            <div className="px-5 pb-3 pt-5">
+              <p className="flex items-center gap-2 text-[15px] font-medium text-black">
+                <Icon
+                  name={pendingAction === "flagged" ? "flag" : "book-check"}
+                  size={16}
+                />
+                {pendingAction === "flagged" ? "Flag logs?" : "Mark as reviewed?"}
+              </p>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-[#4d4d4d]">
+                {selected.size} log{selected.size === 1 ? "" : "s"} will be
+                marked as {pendingAction}.
+              </p>
+              {saveError && (
+                <p className="mt-2 text-[13px] text-[#b3261e]" role="alert">
+                  {saveError}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setPendingAction(null)}
+                className="flex-1 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={confirmStatusChange}
+                autoFocus
+                className={`flex-1 rounded-lg py-2.5 text-[14px] font-medium text-white disabled:opacity-50 ${
+                  pendingAction === "flagged"
+                    ? "bg-[#b3261e] hover:bg-[#931b15]"
+                    : "bg-black hover:bg-[#222]"
+                }`}
+              >
+                {saving
+                  ? "Saving…"
+                  : pendingAction === "flagged"
+                    ? "Flag"
+                    : "Mark reviewed"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </TableSection>
   );
 }

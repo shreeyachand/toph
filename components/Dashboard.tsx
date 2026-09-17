@@ -78,9 +78,14 @@ export default function Dashboard({
           />
         </StatGrid>
 
-        {/* Logs */}
+        {/* Logs — new recordings only; the Activity Logs tab shows the full history */}
         <div className="mt-4">
-          <LogsPanel logs={data.logs} searchQuery={query} />
+          <LogsPanel
+            logs={data.logs}
+            searchQuery={query}
+            title="New Employee Logs"
+            statusFilter="new"
+          />
         </div>
       </main>
     </div>

@@ -172,6 +172,10 @@ export async function getRecordings(query: RecordingsQuery = {}): Promise<Record
   const offset = Math.max(query.offset || 0, 0);
 
   const matches = (l: EmployeeLog) =>
+    (statuses.length === 0 ||
+      statuses.includes(
+        (l.status ?? (l.isNew ? "new" : "reviewed")) as "new" | "reviewed" | "flagged"
+      )) &&
     (activities.size === 0 || activities.has(l.activity.toLowerCase())) &&
     (fields.size === 0 || fields.has(l.field.toLowerCase())) &&
     (!search ||
@@ -224,10 +228,15 @@ function paginate(
  * Dashboard composition, run on the server: fans out to the three resource
  * queries in parallel. Replaces the client-side `getDashboardData()` fetch
  * waterfall so the page streams with content.
+ *
+ * The dashboard feed is all new logs (status "new", any date) — the review
+ * queue. The stat cards stay today-scoped ("Todays Recordings / N New"), so
+ * the two are intentionally distinct. The Activity Logs tab fetches the full
+ * history (no status filter).
  */
 export async function getDashboardData(): Promise<DashboardData> {
   const [recordings, stats, meta] = await Promise.all([
-    getRecordings({ sort: "newest", limit: 100 }),
+    getRecordings({ sort: "newest", limit: 100, statuses: ["new"] }),
     getStats(),
     getMeta(),
   ]);
