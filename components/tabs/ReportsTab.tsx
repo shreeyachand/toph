@@ -2,9 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../Icon";
+import {
+  ColumnHeaders,
+  EmptyRow,
+  ExpandableRow,
+  FilterSelect,
+  MenuShell,
+  Pill,
+  SortMenuList,
+  TableRows,
+  TableSection,
+  TableToolbar,
+  ViewButton,
+  useAnchoredMenus,
+  useExpandedIds,
+} from "../DataTable";
 import { Loading, PageHeader } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
-import { MenuShell, Pill } from "../LogsPanel";
 
 interface Report { id: string; title: string; type: string; created_at: string; generated_by: string; }
 
@@ -23,11 +37,12 @@ export default function ReportsTab() {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [live, setLive] = useState(false);
   const [query, setQuery] = useState("");
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [type, setType] = useState("all");
   const [author, setAuthor] = useState("all");
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+  const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
+    useAnchoredMenus(openMenu, setOpenMenu);
   const [title, setTitle] = useState("");
   const [newType, setNewType] = useState("weekly");
   const [saving, setSaving] = useState(false);
@@ -56,6 +71,9 @@ export default function ReportsTab() {
       }
     }), [reports, q, type, author, sortMode]);
 
+  const { expandedIds, allExpanded, toggleExpandAll, toggleExpanded } =
+    useExpandedIds(visible);
+
   const create = async () => {
     if (!title.trim()) return;
     setSaving(true);
@@ -72,14 +90,6 @@ export default function ReportsTab() {
 
   if (!reports) return <Loading label="reports" />;
 
-  const allExpanded = visible.length > 0 && visible.every((r) => expandedIds.has(r.id));
-  const toggleExpandAll = () => setExpandedIds(allExpanded ? new Set() : new Set(visible.map((r) => r.id)));
-  const toggleExpanded = (id: string) => setExpandedIds((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-  const toggleMenu = (menu: Exclude<OpenMenu, null>) => setOpenMenu((cur) => (cur === menu ? null : menu));
   const activeFilterCount = (type === "all" ? 0 : 1) + (author === "all" ? 0 : 1);
   const sortLabel = SORT_OPTIONS.find((s) => s.value === sortMode)?.label ?? "Sort";
   const clearAll = () => { setType("all"); setAuthor("all"); setOpenMenu(null); };
@@ -118,122 +128,97 @@ export default function ReportsTab() {
         </div>
       </section>
 
-      <section className="mt-4 overflow-hidden rounded-2xl border border-[#ececec] bg-white">
-        {/* Panel header */}
-        <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
-          <div className="flex items-center gap-2">
-            <p className="flex items-center gap-2 text-[15px] font-medium text-black">
-              <Icon name="files" size={16} />
-              All reports <span className="font-normal text-[#b3b3b3]">({visible.length})</span>
-            </p>
-            <button
-              onClick={toggleExpandAll}
-              aria-expanded={allExpanded}
-              className="ml-auto rounded-full border border-[#e3e3e3] px-3.5 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5] md:hidden"
-            >
-              {allExpanded ? "Close All" : "View All"}
-            </button>
-          </div>
-          <div className="nice-scroll -mx-4 flex flex-nowrap items-center gap-2 overflow-x-auto px-4 pb-0.5 lg:mx-0 lg:ml-auto lg:flex-wrap lg:justify-end lg:overflow-visible lg:px-0">
-            <div className="relative shrink-0">
-              <Pill icon="list-filter" onClick={() => toggleMenu("sort")} ariaExpanded={openMenu === "sort"} ariaLabel={`Sort reports, current: ${sortLabel}`}>
-                {sortMode === "newest" ? "Sort" : sortLabel}
-              </Pill>
-              {openMenu === "sort" && (
-                <MenuShell onClose={() => setOpenMenu(null)}>
-                  {SORT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value} role="menuitemradio" aria-checked={sortMode === opt.value}
-                      onClick={() => { setSortMode(opt.value); setOpenMenu(null); }}
-                      className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] hover:bg-[#f8f8f8] ${sortMode === opt.value ? "font-semibold text-black" : "text-[#4d4d4d]"}`}
-                    >
-                      {opt.label}
-                      {sortMode === opt.value && <span aria-hidden>✓</span>}
-                    </button>
-                  ))}
-                </MenuShell>
-              )}
-            </div>
-            {type !== "all" && (
-              <div className="shrink-0">
-                <Pill active icon="x" onClick={() => setType("all")} ariaLabel={`Clear type filter ${type}`}>{type}</Pill>
+      <div className="mt-4">
+      <TableSection>
+        <TableToolbar
+          icon="files"
+          title="All reports"
+          count={visible.length}
+          allExpanded={allExpanded}
+          onToggleAll={toggleExpandAll}
+          controls={
+            <>
+              <div ref={sortAnchorRef} className="relative shrink-0">
+                <Pill icon="list-filter" onClick={() => toggleMenuAnchored("sort", sortAnchorRef)} ariaExpanded={openMenu === "sort"} ariaLabel={`Sort reports, current: ${sortLabel}`}>
+                  {sortMode === "newest" ? "Sort" : sortLabel}
+                </Pill>
               </div>
-            )}
-            {author !== "all" && (
-              <div className="shrink-0">
-                <Pill active icon="x" onClick={() => setAuthor("all")} ariaLabel={`Clear author filter ${author}`}>{author}</Pill>
-              </div>
-            )}
-            <div className="relative shrink-0">
-              <Pill active={activeFilterCount > 0} icon="funnel" onClick={() => toggleMenu("filter")} ariaExpanded={openMenu === "filter"} ariaLabel="Open filters">
-                Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-              </Pill>
-              {openMenu === "filter" && (
-                <MenuShell onClose={() => setOpenMenu(null)}>
-                  <div className="space-y-3 px-4 py-3.5">
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">Type</span>
-                      <select value={type} onChange={(e) => setType(e.target.value)}
-                        className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] text-black capitalize outline-none focus:border-[#b3b3b3]">
-                        <option value="all">All types</option>
-                        {types.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">Generated by</span>
-                      <select value={author} onChange={(e) => setAuthor(e.target.value)}
-                        className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] text-black outline-none focus:border-[#b3b3b3]">
-                        <option value="all">Everyone</option>
-                        {authors.map((a) => <option key={a} value={a}>{a}</option>)}
-                      </select>
-                    </label>
-                    <button onClick={clearAll} className="w-full rounded-lg bg-black py-2 text-[13px] font-medium text-white hover:bg-[#222]">Clear all</button>
-                  </div>
-                </MenuShell>
+              {type !== "all" && (
+                <div className="shrink-0">
+                  <Pill active icon="x" onClick={() => setType("all")} ariaLabel={`Clear type filter ${type}`}>{type}</Pill>
+                </div>
               )}
+              {author !== "all" && (
+                <div className="shrink-0">
+                  <Pill active icon="x" onClick={() => setAuthor("all")} ariaLabel={`Clear author filter ${author}`}>{author}</Pill>
+                </div>
+              )}
+              <div ref={filterAnchorRef} className="relative shrink-0">
+                <Pill active={activeFilterCount > 0} icon="funnel" onClick={() => toggleMenuAnchored("filter", filterAnchorRef)} ariaExpanded={openMenu === "filter"} ariaLabel="Open filters">
+                  Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                </Pill>
+              </div>
+            </>
+          }
+        />
+        {openMenu === "sort" && (
+          <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
+            <SortMenuList
+              options={SORT_OPTIONS}
+              value={sortMode}
+              onPick={(v) => { setSortMode(v); setOpenMenu(null); }}
+            />
+          </MenuShell>
+        )}
+        {openMenu === "filter" && (
+          <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
+            <div className="space-y-3 px-4 py-3.5">
+              <FilterSelect label="Type" value={type} onChange={setType} allLabel="All types" options={types} capitalize />
+              <FilterSelect label="Generated by" value={author} onChange={setAuthor} allLabel="Everyone" options={authors} />
+              <button onClick={clearAll} className="w-full rounded-lg bg-black py-2 text-[13px] font-medium text-white hover:bg-[#222]">Clear all</button>
             </div>
-          </div>
-        </div>
+          </MenuShell>
+        )}
 
-        {/* Column headers */}
-        <div className="hidden grid-cols-[1.8fr_0.8fr_1fr_0.9fr_92px] items-center gap-2 border-y border-[#f0f0f0] px-5 py-3 text-[12px] font-medium uppercase tracking-wide text-[#c4c4c4] md:grid">
+        <ColumnHeaders
+          gridClass="grid-cols-[1.8fr_0.8fr_1fr_0.9fr_92px]"
+          allExpanded={allExpanded}
+          onToggleAll={toggleExpandAll}
+        >
           <span>Report</span><span>Type</span><span>Generated by</span><span>Date</span>
-          <span className="text-right">
-            <button onClick={toggleExpandAll} aria-expanded={allExpanded}
-              className="rounded-full border border-[#e3e3e3] px-3.5 py-1.5 text-[13px] normal-case tracking-normal text-[#4d4d4d] hover:bg-[#f5f5f5]">
-              {allExpanded ? "Close All" : "View All"}
-            </button>
-          </span>
-        </div>
+        </ColumnHeaders>
 
-        {/* Rows */}
-        <ul className="divide-y divide-[#f0f0f0]">
+        <TableRows>
           {visible.map((r) => {
             const expanded = expandedIds.has(r.id);
             return (
-              <li key={r.id} className={expanded ? "bg-[#fafafa]" : "bg-white"}>
-                <div className="grid grid-cols-[1fr_auto] items-center gap-2 px-4 py-3.5 text-[14px] text-[#4d4d4d] sm:px-5 md:grid-cols-[1.8fr_0.8fr_1fr_0.9fr_92px]">
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef7f1] md:flex">
-                      <Icon name="files" size={14} />
+              <ExpandableRow
+                key={r.id}
+                expanded={expanded}
+                onToggle={() => toggleExpanded(r.id)}
+                gridClass="grid-cols-[1fr_auto] md:grid-cols-[1.8fr_0.8fr_1fr_0.9fr_92px]"
+                ariaLabel={`${r.title} report — ${r.type}, ${expanded ? "collapse" : "expand"}`}
+                summary={
+                  <>
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef7f1] md:flex">
+                        <Icon name="files" size={14} />
+                      </span>
+                      <span className="min-w-0 truncate font-normal text-black">{r.title}</span>
                     </span>
-                    <span className="min-w-0 truncate font-normal text-black">{r.title}</span>
-                  </span>
-                  <span className="hidden truncate capitalize md:block">{r.type}</span>
-                  <span className="hidden truncate md:block">{r.generated_by}</span>
-                  <span className="hidden truncate md:block">{r.created_at.slice(0, 10)}</span>
-                  <span className="col-span-1 truncate text-[12px] capitalize text-[#b3b3b3] md:hidden">
-                    {r.type} · {r.generated_by} · {r.created_at.slice(0, 10)}
-                  </span>
-                  <span className="text-right">
-                    <button onClick={() => toggleExpanded(r.id)} aria-expanded={expanded}
-                      className="rounded-full border border-[#e9e9e9] bg-white px-4 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5]">
-                      {expanded ? "Close" : "View"}
-                    </button>
-                  </span>
-                </div>
-                {expanded && (
-                  <div className="border-t border-[#f0f0f0] px-4 py-4 sm:px-6">
+                    <span className="hidden truncate capitalize md:block">{r.type}</span>
+                    <span className="hidden truncate md:block">{r.generated_by}</span>
+                    <span className="hidden truncate md:block">{r.created_at.slice(0, 10)}</span>
+                    <span className="col-span-1 truncate text-[12px] capitalize text-[#b3b3b3] md:hidden">
+                      {r.type} · {r.generated_by} · {r.created_at.slice(0, 10)}
+                    </span>
+                    <span className="text-right">
+                      <ViewButton expanded={expanded} onToggle={() => toggleExpanded(r.id)} />
+                    </span>
+                  </>
+                }
+                detail={
+                  <div className="px-4 py-4 sm:px-6">
                     <p className="text-[15px] font-medium text-black">Details</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-[#e3e3e3] px-3 py-1 text-[13px] capitalize text-[#4d4d4d]">{r.type}</span>
@@ -247,17 +232,18 @@ export default function ReportsTab() {
                       Download
                     </button>
                   </div>
-                )}
-              </li>
+                }
+              />
             );
           })}
           {visible.length === 0 && (
-            <li className="px-5 py-10 text-center text-[14px] text-[#b3b3b3]">
-              No reports match your filters. <button onClick={clearAll} className="underline hover:text-black">Clear filters</button>
-            </li>
+            <EmptyRow onClear={clearAll}>
+              No reports match your filters.
+            </EmptyRow>
           )}
-        </ul>
-      </section>
+        </TableRows>
+      </TableSection>
+      </div>
     </div>
   );
 }

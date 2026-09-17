@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
-import { MenuShell, Pill } from "../LogsPanel";
+import { MenuShell, Pill } from "../DataTable";
 
 interface Evt { id: string; title: string; kind: string; employee: string; field: string; starts_at: string; ends_at: string; notes: string | null; }
 

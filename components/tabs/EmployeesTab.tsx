@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { fetchRecordings } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import Icon from "../Icon";
+import {
+  ColumnHeaders,
+  CountBadge,
+  EmptyRow,
+  ExpandableRow,
+  TableRows,
+  TableSection,
+  ViewButton,
+} from "../DataTable";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
 
@@ -61,6 +70,8 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (nam
 
   if (!employees) return <Loading label="employees" />;
 
+  const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
+
   return (
     <div>
       <PageHeader title="Employees" subtitle="Active crew, roles and recording volume" query={query} setQuery={setQuery} live={live} />
@@ -69,48 +80,52 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (nam
         <StatCard icon="audio-lines" label="Workers With Logs" value={logsByEmployee.size} />
         <StatCard icon="star" label="Admins" value={employees.filter((e) => e.role === "admin").length} />
       </StatGrid>
-      <section className="mt-4 overflow-hidden rounded-2xl border border-[#ececec] bg-white">
+      <div className="mt-4">
+      <TableSection>
         <p className="flex items-center gap-2 px-4 pt-4 text-[15px] font-medium text-black sm:px-5">
           <Icon name="users" size={16} /> Crew <span className="font-normal text-[#b3b3b3]">({visible.length})</span>
         </p>
-        <div className="hidden grid-cols-[1.4fr_1fr_1fr_0.8fr_0.5fr_92px] gap-2 border-y border-[#f0f0f0] px-5 py-3 text-[12px] font-medium uppercase tracking-wide text-[#c4c4c4] md:grid">
+        <div className="mt-2 md:mt-0">
+        <ColumnHeaders gridClass="grid-cols-[1.4fr_1fr_1fr_0.8fr_0.5fr_92px]">
           <span>Name</span><span>Role</span><span>Contact</span><span>Hired</span><span>Logs</span><span />
+        </ColumnHeaders>
         </div>
-        <ul className="mt-2 divide-y divide-[#f0f0f0] md:mt-0">
+        <TableRows>
           {visible.map((e) => {
             const expanded = expandedId === e.id;
             const empLogs = logsByEmployee.get(e.full_name) ?? [];
             const score = scores[e.full_name];
             return (
-              <li key={e.id} className={expanded ? "bg-[#fafafa]" : "bg-white"}>
-                <div className="grid grid-cols-[1fr_auto] items-center gap-2 px-4 py-3.5 sm:px-5 md:grid-cols-[1.4fr_1fr_1fr_0.8fr_0.5fr_92px]">
-                  <button onClick={() => setExpandedId(expanded ? null : e.id)} aria-expanded={expanded}
-                    className="flex min-w-0 items-center gap-2.5 text-left">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#146c44] text-[13px] font-semibold text-white">
-                      {e.full_name.charAt(0)}
+              <ExpandableRow
+                key={e.id}
+                expanded={expanded}
+                onToggle={() => toggle(e.id)}
+                gridClass="grid-cols-[1fr_auto] md:grid-cols-[1.4fr_1fr_1fr_0.8fr_0.5fr_92px]"
+                ariaLabel={`${e.full_name} — ${e.role}, ${expanded ? "collapse" : "expand"}`}
+                summary={
+                  <>
+                    <span className="flex min-w-0 items-center gap-2.5 text-left">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#146c44] text-[13px] font-semibold text-white">
+                        {e.full_name.charAt(0)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[14px] font-medium text-black hover:underline">{e.full_name}</span>
+                        <span className="block truncate text-[12px] capitalize text-[#b3b3b3] md:hidden">{e.role} · {empLogs.length} log{empLogs.length === 1 ? "" : "s"}</span>
+                      </span>
                     </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[14px] font-medium text-black hover:underline">{e.full_name}</span>
-                      <span className="block truncate text-[12px] capitalize text-[#b3b3b3] md:hidden">{e.role} · {empLogs.length} log{empLogs.length === 1 ? "" : "s"}</span>
+                    <span className="hidden text-[14px] capitalize text-[#4d4d4d] md:block">{e.role}</span>
+                    <span className="hidden truncate text-[14px] text-[#4d4d4d] md:block">{e.phone ?? e.email ?? "—"}</span>
+                    <span className="hidden text-[14px] text-[#4d4d4d] md:block">{e.hire_date ?? "—"}</span>
+                    <span className="hidden md:block">
+                      <CountBadge>{empLogs.length}</CountBadge>
                     </span>
-                  </button>
-                  <span className="hidden text-[14px] capitalize text-[#4d4d4d] md:block">{e.role}</span>
-                  <span className="hidden truncate text-[14px] text-[#4d4d4d] md:block">{e.phone ?? e.email ?? "—"}</span>
-                  <span className="hidden text-[14px] text-[#4d4d4d] md:block">{e.hire_date ?? "—"}</span>
-                  <span className="hidden md:block">
-                    <span className="inline-flex h-[18px] min-w-[28px] items-center justify-center rounded-full bg-[#b9e2c6] px-1.5 text-[11px] font-semibold text-[#0b3d25]">
-                      {empLogs.length}
+                    <span className="text-right">
+                      <ViewButton expanded={expanded} onToggle={() => toggle(e.id)} />
                     </span>
-                  </span>
-                  <span className="text-right">
-                    <button onClick={() => setExpandedId(expanded ? null : e.id)} aria-expanded={expanded}
-                      className="rounded-full border border-[#e9e9e9] bg-white px-4 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5]">
-                      {expanded ? "Close" : "View"}
-                    </button>
-                  </span>
-                </div>
-                {expanded && (
-                  <div className="border-t border-[#f0f0f0] px-4 py-4 sm:px-6">
+                  </>
+                }
+                detail={
+                  <div className="px-4 py-4 sm:px-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <p className="text-[15px] font-medium text-black">Info</p>
@@ -148,13 +163,16 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (nam
                       View {e.full_name.split(" ")[0]}&apos;s schedule
                     </button>
                   </div>
-                )}
-              </li>
+                }
+              />
             );
           })}
-          {visible.length === 0 && <li className="px-5 py-10 text-center text-[14px] text-[#b3b3b3]">No employees match your search.</li>}
-        </ul>
-      </section>
+          {visible.length === 0 && (
+            <EmptyRow> No employees match your search.</EmptyRow>
+          )}
+        </TableRows>
+      </TableSection>
+      </div>
     </div>
   );
 }

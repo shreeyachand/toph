@@ -1,10 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EmployeeLog } from "@/lib/types";
 import FieldMap, { type MapField } from "./FieldMap";
 import Icon from "./Icon";
 import Waveform from "./Waveform";
+import {
+  ColumnHeaders,
+  EmptyRow,
+  ExpandableRow,
+  FilterSelect,
+  MenuShell,
+  Pill,
+  RowCheckbox,
+  SortMenuList,
+  TableRows,
+  TableSection,
+  TableToolbar,
+  ViewButton,
+  menuCoordsFor,
+  useAnchoredMenus,
+  useExpandedIds,
+  type MenuCoords,
+} from "./DataTable";
+
+// Re-export shared table primitives for tabs that still import them here.
+export { Pill, MenuShell, menuCoordsFor, type MenuCoords } from "./DataTable";
 
 type SortMode = "newest" | "oldest" | "employee-az" | "activity-az";
 type DateRange = "all" | "today" | "week" | "month";
@@ -23,116 +44,6 @@ const DATE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "week", label: "Past 7 days" },
   { value: "month", label: "This month" },
 ];
-
-export function Pill({
-  active,
-  icon,
-  children,
-  onClick,
-  ariaExpanded,
-  ariaLabel,
-}: {
-  active?: boolean;
-  icon?: string;
-  children: React.ReactNode;
-  onClick?: () => void;
-  ariaExpanded?: boolean;
-  ariaLabel?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      aria-expanded={ariaExpanded}
-      aria-label={ariaLabel}
-      className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] transition-colors ${
-        active
-          ? "bg-black text-white hover:bg-[#222]"
-          : "border border-[#e3e3e3] bg-white text-[#4d4d4d] hover:bg-[#f8f8f8]"
-      }`}
-    >
-      {icon &&
-        (active ? (
-          <span className="brightness-0 invert">
-            <Icon name={icon} size={14} />
-          </span>
-        ) : (
-          <Icon name={icon} size={14} />
-        ))}
-      <span className="whitespace-nowrap">{children}</span>
-    </button>
-  );
-}
-
-export interface MenuCoords {
-  top?: number;
-  bottom?: number;
-  left?: number;
-  right?: number;
-}
-
-/** Viewport-anchored position for a dropdown under its trigger button. */
-export function menuCoordsFor(
-  rect: DOMRect,
-  align: "left" | "right"
-): MenuCoords {
-  const MENU_W = 208; // w-52
-  const GAP = 8;
-  const EST_H = 320;
-  const pad = 8;
-  const maxEdge = Math.max(pad, window.innerWidth - MENU_W - pad);
-  const below = window.innerHeight - rect.bottom - GAP;
-  const vertical =
-    below >= EST_H || below >= rect.top
-      ? { top: Math.round(rect.bottom + GAP) }
-      : { bottom: Math.round(window.innerHeight - rect.top + GAP) };
-  return align === "left"
-    ? {
-        ...vertical,
-        left: Math.round(Math.min(Math.max(rect.left, pad), maxEdge)),
-      }
-    : {
-        ...vertical,
-        right: Math.round(
-          Math.min(Math.max(window.innerWidth - rect.right, pad), maxEdge)
-        ),
-      };
-}
-
-export function MenuShell({
-  onClose,
-  children,
-  align = "right",
-  pos = null,
-}: {
-  onClose: () => void;
-  children: React.ReactNode;
-  align?: "right" | "left";
-  /** When provided, the panel is viewport-fixed at these coords (ignores `align`). */
-  pos?: MenuCoords | null;
-}) {
-  return (
-    <>
-      <button
-        aria-hidden
-        tabIndex={-1}
-        onClick={onClose}
-        className="fixed inset-0 z-40 cursor-default bg-transparent"
-      />
-      <div
-        role="menu"
-        style={pos ?? undefined}
-        className={`${
-          pos ? "fixed" : "absolute top-[calc(100%+8px)]"
-        } z-40 w-52 overflow-hidden rounded-xl border border-[#ececec] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.12)] ${
-          pos ? "" : align === "right" ? "right-0" : "left-0"
-        }`}
-      >
-        {children}
-      </div>
-    </>
-  );
-}
 
 function ExpandedMapModal({
   log,
@@ -282,9 +193,6 @@ export default function LogsPanel({
   logs: EmployeeLog[];
   searchQuery: string;
 }) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set(logs[0] ? [logs[0].id] : [])
-  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -303,51 +211,8 @@ export default function LogsPanel({
   const [activity, setActivity] = useState<string>("all");
   const [field, setField] = useState<string>("all");
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
-  // Anchors + viewport coords so dropdowns sit directly under their pill.
-  const sortAnchorRef = useRef<HTMLDivElement>(null);
-  const filterAnchorRef = useRef<HTMLDivElement>(null);
-  const [menuPos, setMenuPos] = useState<MenuCoords | null>(null);
-
-  const placeMenu = (menu: Exclude<OpenMenu, null>) => {
-    const anchor =
-      (menu === "sort" ? sortAnchorRef : filterAnchorRef).current;
-    const rect = anchor?.getBoundingClientRect();
-    if (!rect) {
-      setOpenMenu(null);
-      return;
-    }
-    setMenuPos(menuCoordsFor(rect, menu === "sort" ? "left" : "right"));
-  };
-
-  const toggleMenuAnchored = (
-    menu: Exclude<OpenMenu, null>,
-    anchorRef: React.RefObject<HTMLDivElement | null>
-  ) => {
-    if (openMenu === menu) {
-      setOpenMenu(null);
-      return;
-    }
-    const rect = anchorRef.current?.getBoundingClientRect();
-    if (rect) setMenuPos(menuCoordsFor(rect, menu === "sort" ? "left" : "right"));
-    setOpenMenu(menu);
-  };
-
-  // Keep the open menu glued to its pill across scroll/resize; Esc closes.
-  useEffect(() => {
-    if (!openMenu) return;
-    const onMove = () => placeMenu(openMenu);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenMenu(null);
-    };
-    window.addEventListener("resize", onMove);
-    document.addEventListener("scroll", onMove, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("resize", onMove);
-      document.removeEventListener("scroll", onMove, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [openMenu ]);
+  const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
+    useAnchoredMenus(openMenu, setOpenMenu);
 
   // Anchor relative date filters to the newest log so mock + live data behave.
   const anchorIso = useMemo(
@@ -403,25 +268,17 @@ export default function LogsPanel({
       }
     });
 
-  const allExpanded =
-    visible.length > 0 && visible.every((l) => expandedIds.has(l.id));
+  const { expandedIds, allExpanded, toggleExpandAll, toggleExpanded, setExpandedIds } =
+    useExpandedIds(visible);
 
-  const toggleExpandAll = () => {
-    if (allExpanded) {
-      setExpandedIds(new Set());
-    } else {
-      setExpandedIds(new Set(visible.map((l) => l.id)));
+  // Pre-expand the first log on first load (previous default behavior).
+  const [seeded, setSeeded] = useState(false);
+  useEffect(() => {
+    if (!seeded && logs[0]) {
+      setSeeded(true);
+      setExpandedIds(new Set([logs[0].id]));
     }
-  };
-
-  const toggleExpanded = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  }, [logs, seeded, setExpandedIds]);
 
   const activeFilterCount =
     (dateRange === "all" ? 0 : 1) +
@@ -457,7 +314,7 @@ export default function LogsPanel({
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#ececec] bg-white">
+    <TableSection>
       {/* Panel header — pills scroll horizontally on mobile, wrap on sm+ */}
       <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
         <div className="flex items-center gap-2">
@@ -535,82 +392,40 @@ export default function LogsPanel({
               the scroll row's mobile overflow can't clip them. */}
           {openMenu === "sort" && (
             <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  role="menuitemradio"
-                  aria-checked={sortMode === opt.value}
-                  onClick={() => {
-                    setSortMode(opt.value);
-                    setOpenMenu(null);
-                  }}
-                  className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] hover:bg-[#f8f8f8] ${
-                    sortMode === opt.value
-                      ? "font-semibold text-black"
-                      : "text-[#4d4d4d]"
-                  }`}
-                >
-                  {opt.label}
-                  {sortMode === opt.value && <span aria-hidden>✓</span>}
-                </button>
-              ))}
+              <SortMenuList
+                options={SORT_OPTIONS}
+                value={sortMode}
+                onPick={(v) => {
+                  setSortMode(v);
+                  setOpenMenu(null);
+                }}
+              />
             </MenuShell>
           )}
           {openMenu === "filter" && (
             <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
                 <div className="space-y-3 px-4 py-3.5">
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">
-                      Date
-                    </span>
-                    <select
-                      value={dateRange}
-                      onChange={(e) =>
-                        setDateRange(e.target.value as DateRange)
-                      }
-                      className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] text-black outline-none focus:border-[#b3b3b3]"
-                    >
-                      {DATE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">
-                      Activity
-                    </span>
-                    <select
-                      value={activity}
-                      onChange={(e) => setActivity(e.target.value)}
-                      className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] text-black outline-none focus:border-[#b3b3b3]"
-                    >
-                      <option value="all">All activities</option>
-                      {activities.map((a) => (
-                        <option key={a} value={a}>
-                          {a}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">
-                      Field
-                    </span>
-                    <select
-                      value={field}
-                      onChange={(e) => setField(e.target.value)}
-                      className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] text-black outline-none focus:border-[#b3b3b3]"
-                    >
-                      <option value="all">All fields</option>
-                      {fields.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <FilterSelect
+                    label="Date"
+                    value={dateRange}
+                    onChange={(v) => setDateRange(v as DateRange)}
+                    allLabel="All dates"
+                    options={DATE_OPTIONS.filter((o) => o.value !== "all")}
+                  />
+                  <FilterSelect
+                    label="Activity"
+                    value={activity}
+                    onChange={setActivity}
+                    allLabel="All activities"
+                    options={activities}
+                  />
+                  <FilterSelect
+                    label="Field"
+                    value={field}
+                    onChange={setField}
+                    allLabel="All fields"
+                    options={fields}
+                  />
                   <button
                     onClick={clearAll}
                     className="w-full rounded-lg bg-black py-2 text-[13px] font-medium text-white hover:bg-[#222]"
@@ -623,7 +438,11 @@ export default function LogsPanel({
       </div>
 
       {/* Column headers */}
-      <div className="hidden grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px] items-center gap-2 border-y border-[#f0f0f0] px-5 py-3 text-[12px] font-medium uppercase tracking-wide text-[#c4c4c4] md:grid">
+      <ColumnHeaders
+        gridClass="grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]"
+        allExpanded={allExpanded}
+        onToggleAll={toggleExpandAll}
+      >
         <button
           onClick={toggleAll}
           aria-label="Select all"
@@ -638,110 +457,61 @@ export default function LogsPanel({
         <span>Date</span>
         <span>Field</span>
         <span>Time</span>
-        <span className="text-right">
-          <button
-            onClick={toggleExpandAll}
-            aria-expanded={allExpanded}
-            className="rounded-full border border-[#e3e3e3] px-3.5 py-1.5 text-[13px] normal-case tracking-normal text-[#4d4d4d] hover:bg-[#f5f5f5]"
-          >
-            {allExpanded ? "Close All" : "View All"}
-          </button>
-        </span>
-      </div>
+      </ColumnHeaders>
 
       {/* Rows */}
-      <ul className="divide-y divide-[#f0f0f0]">
+      <TableRows>
         {visible.map((log) => {
           const expanded = expandedIds.has(log.id);
           return (
-            <li
+            <ExpandableRow
               key={log.id}
-              className={expanded ? "bg-[#fafafa]" : "bg-white"}
-            >
-              <div
-                onClick={() => toggleExpanded(log.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleExpanded(log.id);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-expanded={expanded}
-                aria-label={`${log.employee} log — ${log.activity} in ${log.field}, ${expanded ? "collapse" : "expand"}`}
-                className="grid cursor-pointer grid-cols-[28px_1fr] items-center gap-2 px-4 py-3.5 text-[14px] text-[#4d4d4d] sm:px-5 md:cursor-default md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]"
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSelect(log.id);
-                  }}
-                  aria-label={`Select ${log.employee}`}
-                  aria-pressed={selected.has(log.id)}
-                  className={`flex h-4 w-4 items-center justify-center rounded-[4px] border ${
-                    selected.has(log.id)
-                      ? "border-black bg-black"
-                      : "border-[#d4d4d4] bg-white"
-                  }`}
-                >
-                  {selected.has(log.id) && (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M2 5.2 4.2 7.4 8 3"
-                        stroke="#fff"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </button>
-                <span className="min-w-0 truncate font-normal text-black">
-                  {log.employee}
-                </span>
-                <span className="hidden truncate md:block">
-                  {log.activity}
-                </span>
-                <span className="hidden truncate md:block">{log.date}</span>
-                <span className="hidden truncate md:block">{log.field}</span>
-                <span className="hidden truncate md:block">{log.time}</span>
-                {/* mobile sub-line — hidden until expanded, full row width */}
-                {expanded && (
-                  <span className="col-span-2 truncate text-[12px] text-[#b3b3b3] md:hidden">
-                    {log.activity} · {log.date} · {log.field}
+              expanded={expanded}
+              onToggle={() => toggleExpanded(log.id)}
+              gridClass="grid-cols-[28px_1fr] md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]"
+              ariaLabel={`${log.employee} log — ${log.activity} in ${log.field}, ${expanded ? "collapse" : "expand"}`}
+              summary={
+                <>
+                  <RowCheckbox
+                    checked={selected.has(log.id)}
+                    label={`Select ${log.employee}`}
+                    onToggle={() => toggleSelect(log.id)}
+                  />
+                  <span className="min-w-0 truncate font-normal text-black">
+                    {log.employee}
                   </span>
-                )}
-                <span className="hidden text-right md:block">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleExpanded(log.id);
-                    }}
-                    aria-expanded={expanded}
-                    className="rounded-full border border-[#e9e9e9] bg-white px-4 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5]"
-                  >
-                    {expanded ? "Close" : "View"}
-                  </button>
-                </span>
-              </div>
-              {expanded && (
-                <div className="border-t border-[#f0f0f0]">
-                  <LogDetail log={log} mapField={fieldIndex[log.field] ?? null} />
-                </div>
-              )}
-            </li>
+                  <span className="hidden truncate md:block">
+                    {log.activity}
+                  </span>
+                  <span className="hidden truncate md:block">{log.date}</span>
+                  <span className="hidden truncate md:block">{log.field}</span>
+                  <span className="hidden truncate md:block">{log.time}</span>
+                  {/* mobile sub-line — hidden until expanded, full row width */}
+                  {expanded && (
+                    <span className="col-span-2 truncate text-[12px] text-[#b3b3b3] md:hidden">
+                      {log.activity} · {log.date} · {log.field}
+                    </span>
+                  )}
+                  <span className="hidden text-right md:block">
+                    <ViewButton expanded={expanded} onToggle={() => toggleExpanded(log.id)} />
+                  </span>
+                </>
+              }
+              detail={
+                <LogDetail log={log} mapField={fieldIndex[log.field] ?? null} />
+              }
+            />
           );
         })}
         {visible.length === 0 && (
-          <li className="px-5 py-10 text-center text-[14px] text-[#b3b3b3]">
-            No logs match your filters.{" "}
-            <button onClick={clearAll} className="underline hover:text-black">
-              Clear filters
-            </button>
-          </li>
+          <EmptyRow onClear={clearAll}>
+            No logs match your filters.
+          </EmptyRow>
         )}
-      </ul>
-    </section>
+      </TableRows>
+    </TableSection>
   );
 }
+
+// Re-export toolbar pieces for tabs migrating off LogsPanel imports.
+export { TableToolbar };
