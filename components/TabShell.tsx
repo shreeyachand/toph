@@ -13,7 +13,7 @@ export default function TabShell({
   farm: string;
   role: string;
   active: TabKey;
-  onNavigate: (tab: TabKey) => void;
+  onNavigate?: (tab: TabKey) => void;
   children: React.ReactNode;
 }) {
   return (

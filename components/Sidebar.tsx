@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Icon from "./Icon";
 
 export type TabKey =
@@ -24,6 +25,21 @@ interface NavSection {
   title: string;
   items: NavItem[];
 }
+
+/** Canonical URL for every tab — refreshing keeps you on the same view. */
+export const TAB_PATHS: Record<TabKey, string> = {
+  dashboard: "/",
+  activity: "/activity",
+  map: "/map",
+  audit: "/audit",
+  reports: "/reports",
+  schedule: "/schedule",
+  employees: "/employees",
+  performance: "/performance",
+  messages: "/messages",
+  settings: "/settings",
+  support: "/support",
+};
 
 const SECTIONS: NavSection[] = [
   {
@@ -68,7 +84,7 @@ export default function Sidebar({
   farm: string;
   role: string;
   active: TabKey;
-  onNavigate: (tab: TabKey) => void;
+  onNavigate?: (tab: TabKey) => void;
 }) {
   return (
     <aside className="hidden lg:flex w-[270px] shrink-0 flex-col rounded-2xl border border-[#ececec] bg-white p-4">
@@ -102,8 +118,10 @@ export default function Sidebar({
             <ul className="space-y-0.5">
               {section.items.map((item) => (
                 <li key={item.label}>
-                  <button
-                    onClick={() => onNavigate(item.tab)}
+                  <Link
+                    href={TAB_PATHS[item.tab]}
+                    onClick={() => onNavigate?.(item.tab)}
+                    aria-current={active === item.tab ? "page" : undefined}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors ${
                       active === item.tab
                         ? "bg-[#f2f2f2] font-medium text-black"
@@ -117,7 +135,7 @@ export default function Sidebar({
                         {item.badge}
                       </span>
                     )}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>

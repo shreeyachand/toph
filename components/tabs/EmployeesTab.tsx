@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { fetchRecordings } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import Icon from "../Icon";
@@ -10,13 +11,22 @@ import StatCard from "../StatCard";
 interface Employee { id: string; full_name: string; role: string; phone: string | null; email: string | null; status: string; hire_date: string | null; }
 
 /** Employees tab: roster with expandable profiles + jump to filtered schedule. */
-export default function EmployeesTab({ onViewSchedule }: { onViewSchedule: (name: string) => void }) {
+export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (name: string) => void }) {
   const [employees, setEmployees] = useState<Employee[] | null>(null);
   const [live, setLive] = useState(false);
   const [query, setQuery] = useState("");
   const [logs, setLogs] = useState<EmployeeLog[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const router = useRouter();
+
+  const viewSchedule = (name: string) => {
+    if (onViewSchedule) {
+      onViewSchedule(name);
+      return;
+    }
+    router.push(`/schedule?person=${encodeURIComponent(name)}`);
+  };
 
   useEffect(() => {
     fetch("/api/employees", { cache: "no-store" })
@@ -131,7 +141,7 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule: (name
                       </div>
                     </div>
                     <button
-                      onClick={() => onViewSchedule(e.full_name)}
+                      onClick={() => viewSchedule(e.full_name)}
                       className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-[14px] font-medium text-white hover:bg-[#222] sm:w-auto sm:px-8"
                     >
                       <Icon name="calendar" size={15} />
