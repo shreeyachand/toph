@@ -6,7 +6,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Toph — Farm Dashboard",
+  title: "Toph",
   description: "An overview of your farm and employee activity",
 };
 

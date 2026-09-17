@@ -331,6 +331,8 @@ export default function LogsPanel({
   title,
   statusFilter = "all",
   onStatusChanged,
+  initialField,
+  onFieldChange,
 }: {
   logs: EmployeeLog[];
   searchQuery: string;
@@ -342,6 +344,10 @@ export default function LogsPanel({
   statusFilter?: "all" | "new";
   /** Parent refresh hook after a bulk status change succeeds. */
   onStatusChanged?: (ids: string[]) => void;
+  /** Pre-select the field filter (e.g. deep-link from /map?field=…). */
+  initialField?: string | null;
+  /** Fired whenever the field filter changes (null = cleared) so the parent can keep the URL in sync. */
+  onFieldChange?: (field: string | null) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // One state per log: a log is new, reviewed, OR flagged — never two at once.
@@ -366,7 +372,7 @@ export default function LogsPanel({
       .catch(() => {});
   }, []);
   const [activity, setActivity] = useState<string>("all");
-  const [field, setField] = useState<string>("all");
+  const [field, setField] = useState<string>(initialField ?? "all");
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
     useAnchoredMenus(openMenu, setOpenMenu);
@@ -493,10 +499,16 @@ export default function LogsPanel({
   const sortLabel =
     sortOptions.find((s) => s.value === sortMode)?.label ?? "Sort";
 
+  // Single choke point for field-filter changes so the URL can follow along.
+  const updateField = (v: string) => {
+    setField(v);
+    onFieldChange?.(v === "all" ? null : v);
+  };
+
   const clearAll = () => {
     setDateRange("all");
     setActivity("all");
-    setField("all");
+    updateField("all");
     setOpenMenu(null);
   };
 
@@ -621,7 +633,7 @@ export default function LogsPanel({
               <Pill
                 active
                 icon="x"
-                onClick={() => setField("all")}
+                onClick={() => updateField("all")}
                 ariaLabel={`Clear field filter ${field}`}
               >
                 {field}
@@ -676,7 +688,7 @@ export default function LogsPanel({
                   <FilterSelect
                     label="Field"
                     value={field}
-                    onChange={setField}
+                    onChange={updateField}
                     allLabel="All fields"
                     options={fields}
                   />

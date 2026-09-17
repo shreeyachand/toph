@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Icon from "../Icon";
 import { Loading, PageHeader } from "../PageHeader";
@@ -27,6 +28,7 @@ interface FieldRow {
 /** Map tab: large satellite map with the fields list as an on-map popup. */
 export default function MapTab() {
   const [fields, setFields] = useState<FieldRow[] | null>(null);
+  const router = useRouter();
   const [live, setLive] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
@@ -55,6 +57,10 @@ export default function MapTab() {
   const handleSelect = (id: string) => {
     setSelected(id);
     setListOpen(true);
+  };
+
+  const handleViewRecordings = (fieldName: string) => {
+    router.push(`/activity?field=${encodeURIComponent(fieldName)}`);
   };
 
   return (
@@ -104,26 +110,35 @@ export default function MapTab() {
                   <Icon name="x" size={16} />
                 </button>
               </div>
-              <ul className="nice-scroll max-h-[24vh] divide-y divide-[#f0f0f0] overflow-y-auto sm:max-h-[38vh]">
-                {fields.map((f) => (
-                  <li key={f.id}>
-                    <button
-                      onClick={() => setSelected(f.id)}
-                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left sm:gap-3 sm:px-4 sm:py-3 ${selected === f.id ? "bg-[#fafafa]" : "bg-white hover:bg-[#f8f8f8]"}`}
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef7f1] text-[12px] font-semibold text-[#146c44] sm:h-9 sm:w-9 sm:text-[13px]">
-                        {f.name.replace("FIELD ", "")}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-medium text-black">{f.name}</span>
-                        <span className="block truncate text-[12px] text-[#b3b3b3]">
-                          {f.block ?? "—"} · {Number(f.acreage ?? 0).toFixed(1)} ac · {f.logs} log{f.logs === 1 ? "" : "s"}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+<ul className="nice-scroll max-h-[24vh] divide-y divide-[#f0f0f0] overflow-y-auto sm:max-h-[38vh]">
+                 {fields.map((f) => (
+                   <li key={f.id}>
+                     <button
+                       onClick={() => setSelected(f.id)}
+                       className={`flex w-full items-center gap-2.5 px-3 py-2 text-left sm:gap-3 sm:px-4 sm:py-3 ${selected === f.id ? "bg-[#fafafa]" : "bg-white hover:bg-[#f8f8f8]"}`}
+                     >
+                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef7f1] text-[12px] font-semibold text-[#146c44] sm:h-9 sm:w-9 sm:text-[13px]">
+                         {f.name.replace("FIELD ", "")}
+                       </span>
+                       <span className="min-w-0 flex-1">
+                         <span className="block truncate text-[14px] font-medium text-black">{f.name}</span>
+                         <span className="block truncate text-[12px] text-[#b3b3b3]">
+                           {f.block ?? "—"} · {Number(f.acreage ?? 0).toFixed(1)} ac · {f.logs} log{f.logs === 1 ? "" : "s"}
+                         </span>
+                       </span>
+                       <span
+                         role="button"
+                         tabIndex={0}
+                         onClick={(e) => { e.stopPropagation(); handleViewRecordings(f.name); }}
+                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleViewRecordings(f.name); } }}
+                         className="shrink-0 cursor-pointer rounded-full border border-[#e3e3e3] px-3 py-1 text-[11px] text-[#4d4d4d] hover:bg-[#f5f5f5]"
+                       >
+                         Recordings
+                       </span>
+                     </button>
+                   </li>
+                 ))}
+               </ul>
             </div>
           )}
         </div>

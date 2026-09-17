@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { fetchRecordings, type RecordingsResponse } from "@/lib/data";
 import { useCurrentUser } from "@/lib/role";
 import LogsPanel from "../LogsPanel";
@@ -8,9 +9,10 @@ import { Loading, PageHeader } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
 
 /** Activity Logs tab: full-width log feed with status + stat summaries. */
-export default function ActivityLogsTab() {
+export default function ActivityLogsTab({ initialField }: { initialField?: string | null }) {
+  const searchParams = useSearchParams();
   const { isEmployee, employeeName } = useCurrentUser(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [status, setStatus] = useState<"all" | "new" | "reviewed" | "flagged">("all");
   const [rec, setRec] = useState<RecordingsResponse | null>(null);
 
@@ -20,6 +22,17 @@ export default function ActivityLogsTab() {
       .then(setRec)
       .catch(() => {});
   }, [status]);
+
+  // Keep ?field= in the address bar in step with the panel's field filter.
+  // replaceState (no router navigation) so the table state stays put —
+  // reads window.location directly so it never goes stale between renders.
+  const syncFieldParam = (field: string | null) => {
+    const params = new URLSearchParams(window.location.search);
+    if (field) params.set("field", field);
+    else params.delete("field");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/activity?${qs}` : "/activity");
+  };
 
   // Stats feed: always the full history, independent of the status pill, so
   // the cards reflect the state of all logs.
@@ -102,6 +115,8 @@ export default function ActivityLogsTab() {
           hideEmployee={isEmployee}
           title={isEmployee ? "My Activity Logs" : "All Employee Logs"}
           onStatusChanged={reload}
+          initialField={initialField ?? (searchParams.get("field") ?? null)}
+          onFieldChange={syncFieldParam}
         />
       </div>
     </div>
