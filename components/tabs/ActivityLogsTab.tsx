@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchRecordings, fetchStats, type RecordingsResponse, type StatsResponse } from "@/lib/data";
+import { useCurrentUser } from "@/lib/role";
 import LogsPanel from "../LogsPanel";
 import { Loading, PageHeader } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
 
 /** Activity Logs tab: full-width log feed with status + stat summaries. */
 export default function ActivityLogsTab() {
+  const { isEmployee, employeeName } = useCurrentUser(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "new" | "reviewed" | "flagged">("all");
   const [rec, setRec] = useState<RecordingsResponse | null>(null);
@@ -24,21 +26,29 @@ export default function ActivityLogsTab() {
 
   const counts = useMemo(() => {
     const logs = rec?.data ?? [];
+    const mine = isEmployee && employeeName
+      ? logs.filter((l) => l.employee === employeeName)
+      : logs;
     return {
-      total: rec?.total ?? logs.length,
-      new: logs.filter((l) => l.status === "new" || l.isNew).length,
-      reviewed: logs.filter((l) => l.status === "reviewed").length,
-      flagged: logs.filter((l) => l.status === "flagged").length,
+      logs: mine,
+      total: isEmployee ? mine.length : (rec?.total ?? logs.length),
+      new: mine.filter((l) => l.status === "new" || l.isNew).length,
+      reviewed: mine.filter((l) => l.status === "reviewed").length,
+      flagged: mine.filter((l) => l.status === "flagged").length,
     };
-  }, [rec]);
+  }, [rec, isEmployee, employeeName]);
 
   if (!rec) return <Loading label="activity logs" />;
 
   return (
     <div>
       <PageHeader
-        title="Activity Logs"
-        subtitle="Every voice recording across your fields, newest first"
+        title={isEmployee ? "My Activity Logs" : "Activity Logs"}
+        subtitle={
+          isEmployee
+            ? `Every voice recording you submitted${employeeName ? ` as ${employeeName}` : ""}, newest first`
+            : "Every voice recording across your fields, newest first"
+        }
         query={query}
         setQuery={setQuery}
         live={rec.live}
@@ -65,7 +75,7 @@ export default function ActivityLogsTab() {
         ))}
       </div>
       <div className="mt-4">
-        <LogsPanel logs={rec.data} searchQuery={query} />
+        <LogsPanel logs={counts.logs} searchQuery={query} hideEmployee={isEmployee} />
       </div>
     </div>
   );

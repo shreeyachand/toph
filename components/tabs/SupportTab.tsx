@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCurrentUser } from "@/lib/role";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
@@ -9,6 +10,8 @@ interface Ticket { id: string; subject: string; body: string | null; status: str
 
 /** Support tab: ticket list + new-ticket form. */
 export default function SupportTab() {
+  const { isEmployee, employeeName } = useCurrentUser(null);
+  const requester = isEmployee && employeeName ? employeeName : "Admin";
   const [tickets, setTickets] = useState<Ticket[] | null>(null);
   const [live, setLive] = useState(false);
   const [query, setQuery] = useState("");
@@ -30,7 +33,7 @@ export default function SupportTab() {
     try {
       const res = await fetch("/api/support", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: subject.trim(), body: body.trim(), requester: "Admin" }),
+        body: JSON.stringify({ subject: subject.trim(), body: body.trim(), requester }),
       });
       const j = await res.json();
       if (j.data) setTickets((prev) => [j.data, ...(prev ?? [])]);

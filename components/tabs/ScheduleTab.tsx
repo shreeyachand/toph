@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useCurrentUser } from "@/lib/role";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
 import StatCard, { StatGrid } from "../StatCard";
@@ -48,6 +49,9 @@ function toMin(iso: string) {
 
 /** Schedule tab: list view + paginated week grid. */
 export default function ScheduleTab({ initialPerson = null }: { initialPerson?: string | null }) {
+  const { isEmployee, employeeName } = useCurrentUser(null);
+  // Employees are locked to their own schedule; admins can filter by anyone.
+  const lockedPerson = isEmployee ? (employeeName ?? initialPerson) : initialPerson;
   const [events, setEvents] = useState<Evt[] | null>(null);
   const [live, setLive] = useState(false);
   const [query, setQuery] = useState("");
@@ -74,14 +78,18 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
 
   // Default selection once both sources are in: a pre-filtered person when
   // jumping over from Employees, otherwise the whole roster checked so the
-  // dropdown matches the "show all" view.
+  // dropdown matches the "show all" view. Employees stay locked to themselves.
   useEffect(() => {
     if (events && rosterDone && !initialized.current) {
       initialized.current = true;
-      const names = Array.from(new Set([...roster, ...events.map((e) => e.employee)])).sort();
-      setPeople(initialPerson ? new Set(names.filter((n) => n === initialPerson)) : new Set(names));
+      if (lockedPerson) {
+        setPeople(new Set([lockedPerson]));
+      } else {
+        const names = Array.from(new Set([...roster, ...events.map((e) => e.employee)])).sort();
+        setPeople(initialPerson ? new Set(names.filter((n) => n === initialPerson)) : new Set(names));
+      }
     }
-  }, [events, roster, rosterDone, initialPerson]);
+  }, [events, roster, rosterDone, initialPerson, lockedPerson]);
 
   // Anchor the week view on the earliest event so it opens with data.
   useEffect(() => {
@@ -152,7 +160,13 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
 
   return (
     <div>
-      <PageHeader title="Schedule" subtitle="Shifts, tasks and time off across the crew" query={query} setQuery={setQuery} live={live} />
+      <PageHeader
+        title={isEmployee ? "My Schedule" : "Schedule"}
+        subtitle={isEmployee ? "Your shifts, tasks and time off" : "Shifts, tasks and time off across the crew"}
+        query={query}
+        setQuery={setQuery}
+        live={live}
+      />
       <StatGrid cols={3}>
         <StatCard icon="calendar" label="Scheduled Events" value={events.length} />
         <StatCard icon="users" label="Shifts" value={events.filter((e) => e.kind === "shift").length} />
@@ -167,6 +181,7 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
           </button>
         ))}
         <span className="mx-1 hidden h-5 w-px bg-[#e3e3e3] sm:block" aria-hidden />
+        {!isEmployee && (
         <div className="relative shrink-0">
           <Pill
             active={people.size !== peopleOptions.length} icon="users"
@@ -215,6 +230,7 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
             </MenuShell>
           )}
         </div>
+        )}
         <div className="flex rounded-full border border-[#e3e3e3] bg-white p-0.5">
           {(["list", "week"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} aria-pressed={view === v}

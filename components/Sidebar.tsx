@@ -2,6 +2,7 @@
 
 import { createContext, useEffect, useState } from "react";
 import Link from "next/link";
+import { getStoredKind, setStoredKind, type UserKind } from "@/lib/role";
 import Icon from "./Icon";
 
 export type TabKey =
@@ -88,6 +89,108 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
+const isEmployeeRole = (role: string) => role.toLowerCase() === "employee";
+
+/** Employees see a limited set of tabs, regrouped flatter. */
+export function sectionsForRole(role: string): NavSection[] {
+  if (!isEmployeeRole(role)) return SECTIONS;
+  const byTab = new Map<TabKey, NavItem>();
+  for (const section of SECTIONS)
+    for (const item of section.items) byTab.set(item.tab, item);
+  const pick = (...tabs: TabKey[]): NavItem[] =>
+    tabs.map((t) => byTab.get(t)).filter((i): i is NavItem => !!i);
+  return [
+    { title: "Overview", items: pick("dashboard", "activity", "schedule") },
+    { title: "Other", items: pick("settings", "support") },
+  ];
+}
+
+const SWITCH_TARGETS: { kind: UserKind; label: string; role: string }[] = [
+  { kind: "admin", label: "Bays Ranch", role: "Admin" },
+  { kind: "employee", label: "Maya Patel", role: "Employee" },
+];
+
+function SwitchUserButton() {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState<UserKind>("admin");
+
+  useEffect(() => {
+    setCurrent(getStoredKind());
+  }, []);
+
+  const pick = (kind: UserKind) => {
+    if (kind === current) {
+      setOpen(false);
+      return;
+    }
+    setStoredKind(kind);
+    // Reload on dashboard so every shell re-reads the stored user.
+    window.location.href = "/";
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label="Switch user"
+        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] text-[#4d4d4d] hover:bg-[#f8f8f8]"
+      >
+        <Icon name="arrow-right-left" size={16} />
+        Switch User
+      </button>
+      {open && (
+        <>
+          <span
+            className="fixed inset-0 z-10"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-full min-w-[220px] overflow-hidden rounded-xl border border-[#ececec] bg-white shadow-xl">
+            <p className="px-3.5 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">
+              View as
+            </p>
+            <ul className="pb-1.5">
+              {SWITCH_TARGETS.map((t) => {
+                const selected = current === t.kind;
+                return (
+                  <li key={t.kind}>
+                    <button
+                      type="button"
+                      onClick={() => pick(t.kind)}
+                      aria-pressed={selected}
+                      className={`flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] hover:bg-[#f8f8f8] ${
+                        selected ? "font-medium text-black" : "text-[#4d4d4d]"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                          selected ? "border-black" : "border-[#d4d4d4]"
+                        }`}
+                      >
+                        {selected && (
+                          <span className="h-2 w-2 rounded-full bg-black" />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{t.label}</span>
+                        <span className="block text-[12px] text-[#b3b3b3]">
+                          {t.role}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Sidebar({
   farm,
   role,
@@ -100,7 +203,7 @@ export default function Sidebar({
   onNavigate?: (tab: TabKey) => void;
 }) {
   return (
-    <aside className="hidden lg:flex w-[270px] shrink-0 flex-col rounded-2xl border border-[#ececec] bg-white p-4">
+    <aside className="hidden w-[270px] shrink-0 flex-col rounded-2xl border border-[#ececec] bg-white p-4 lg:sticky lg:top-4 lg:flex lg:h-[calc(100vh-2rem)]">
       <SidebarBody
         farm={farm}
         role={role}
@@ -179,7 +282,7 @@ export function MobileNav({
               <div className="leading-tight">
                 <p className="text-[13px] font-semibold text-black">{farm}</p>
                 <p className="flex items-center gap-1 text-[12px] text-[#b3b3b3]">
-                  <Icon name="user-star" size={10} />
+                  <Icon name={isEmployeeRole(role) ? "users" : "user-star"} size={10} />
                   {role}
                 </p>
               </div>
@@ -192,7 +295,7 @@ export function MobileNav({
                 <Icon name="x" size={16} />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto nice-scroll">
+            <div className="flex min-h-0 flex-1 flex-col">
               <SidebarBody
                 farm={farm}
                 role={role}
@@ -224,18 +327,19 @@ function SidebarBody({
   onNavigate?: (tab: TabKey) => void;
   hideHeader?: boolean;
 }) {
+  const sections = sectionsForRole(role);
   return (
     <>
       {/* User header */}
       {!hideHeader && (
-        <div className="flex items-center gap-2.5 px-1 pb-4">
+        <div className="flex shrink-0 items-center gap-2.5 px-1 pb-4">
           <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-[#146c44] text-[15px] font-semibold text-white">
             {farm.charAt(0)}
           </div>
           <div className="leading-tight">
             <p className="text-[13px] font-semibold text-black">{farm}</p>
             <p className="flex items-center gap-1 text-[12px] text-[#b3b3b3]">
-              <Icon name="user-star" size={10} />
+              <Icon name={isEmployeeRole(role) ? "users" : "user-star"} size={10} />
               {role}
             </p>
           </div>
@@ -249,8 +353,8 @@ function SidebarBody({
       )}
 
       {/* Nav sections */}
-      <nav className="flex-1 space-y-5 overflow-y-auto nice-scroll">
-        {SECTIONS.map((section) => (
+      <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto nice-scroll">
+        {sections.map((section) => (
           <div key={section.title}>
             <p className="px-2 pb-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[#b3b3b3]">
               {section.title}
@@ -284,21 +388,16 @@ function SidebarBody({
       </nav>
 
       {/* Footer actions */}
-      <div className="space-y-0.5 pt-4">
-        {[
-          { icon: "arrow-right-left", label: "Switch User" },
-          { icon: "log-out", label: "Log Out" },
-        ].map((item) => (
-          <a
-            key={item.label}
-            href="#"
-            onClick={(e) => e.preventDefault()}
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] text-[#4d4d4d] hover:bg-[#f8f8f8]"
-          >
-            <Icon name={item.icon} size={16} />
-            {item.label}
-          </a>
-        ))}
+      <div className="shrink-0 space-y-0.5 pt-4">
+        <SwitchUserButton />
+        <a
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] text-[#4d4d4d] hover:bg-[#f8f8f8]"
+        >
+          <Icon name="log-out" size={16} />
+          Log Out
+        </a>
       </div>
     </>
   );

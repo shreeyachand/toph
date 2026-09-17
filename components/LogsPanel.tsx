@@ -189,9 +189,12 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
 export default function LogsPanel({
   logs,
   searchQuery,
+  hideEmployee = false,
 }: {
   logs: EmployeeLog[];
   searchQuery: string;
+  /** Employee view: everyone listed is the viewer, so drop that column. */
+  hideEmployee?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>("newest");
@@ -271,6 +274,20 @@ export default function LogsPanel({
   const { expandedIds, allExpanded, toggleExpandAll, toggleExpanded, setExpandedIds } =
     useExpandedIds(visible);
 
+  // Employee view drops the redundant employee column (and its sort).
+  const sortOptions = hideEmployee
+    ? SORT_OPTIONS.filter((o) => o.value !== "employee-az")
+    : SORT_OPTIONS;
+  const headerGrid = hideEmployee
+    ? "grid-cols-[44px_1fr_1fr_0.8fr_1.2fr_92px]"
+    : "grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]";
+  const rowGrid = hideEmployee
+    ? "grid-cols-[28px_1fr] md:grid-cols-[44px_1fr_1fr_0.8fr_1.2fr_92px]"
+    : "grid-cols-[28px_1fr] md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]";
+  const panelTitle = hideEmployee
+    ? "My Logs"
+    : `New Employee Log${visible.length === 1 ? "" : "s"}`;
+
   // Pre-expand the first log on first load (previous default behavior).
   const [seeded, setSeeded] = useState(false);
   useEffect(() => {
@@ -287,7 +304,7 @@ export default function LogsPanel({
   const dateLabel =
     DATE_OPTIONS.find((d) => d.value === dateRange)?.label ?? "Date";
   const sortLabel =
-    SORT_OPTIONS.find((s) => s.value === sortMode)?.label ?? "Sort";
+    sortOptions.find((s) => s.value === sortMode)?.label ?? "Sort";
 
   const clearAll = () => {
     setDateRange("all");
@@ -320,7 +337,7 @@ export default function LogsPanel({
         <div className="flex items-center gap-2">
           <p className="flex items-center gap-2 text-[15px] font-medium text-black">
             <Icon name="audio-lines" size={16} />
-            New Employee Log{visible.length === 1 ? "" : "s"}{" "}
+            {panelTitle}{" "}
             <span className="font-normal text-[#b3b3b3]">({visible.length})</span>
           </p>
         </div>
@@ -393,7 +410,7 @@ export default function LogsPanel({
           {openMenu === "sort" && (
             <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
               <SortMenuList
-                options={SORT_OPTIONS}
+                options={sortOptions}
                 value={sortMode}
                 onPick={(v) => {
                   setSortMode(v);
@@ -439,7 +456,7 @@ export default function LogsPanel({
 
       {/* Column headers */}
       <ColumnHeaders
-        gridClass="grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]"
+        gridClass={headerGrid}
         allExpanded={allExpanded}
         onToggleAll={toggleExpandAll}
       >
@@ -452,7 +469,7 @@ export default function LogsPanel({
             <span className="h-2 w-2 rounded-[2px] bg-black" />
           )}
         </button>
-        <span>Employee</span>
+        {!hideEmployee && <span>Employee</span>}
         <span>Activity</span>
         <span>Date</span>
         <span>Field</span>
@@ -468,8 +485,8 @@ export default function LogsPanel({
               key={log.id}
               expanded={expanded}
               onToggle={() => toggleExpanded(log.id)}
-              gridClass="grid-cols-[28px_1fr] md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]"
-              ariaLabel={`${log.employee} log — ${log.activity} in ${log.field}, ${expanded ? "collapse" : "expand"}`}
+              gridClass={rowGrid}
+              ariaLabel={hideEmployee ? `${log.activity} in ${log.field}, ${expanded ? "collapse" : "expand"}` : `${log.employee} log — ${log.activity} in ${log.field}, ${expanded ? "collapse" : "expand"}`}
               summary={
                 <>
                   <RowCheckbox
@@ -477,9 +494,11 @@ export default function LogsPanel({
                     label={`Select ${log.employee}`}
                     onToggle={() => toggleSelect(log.id)}
                   />
-                  <span className="min-w-0 truncate font-normal text-black">
-                    {log.employee}
-                  </span>
+                  {!hideEmployee && (
+                    <span className="min-w-0 truncate font-normal text-black">
+                      {log.employee}
+                    </span>
+                  )}
                   <span className="hidden truncate md:block">
                     {log.activity}
                   </span>
