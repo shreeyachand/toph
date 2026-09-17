@@ -233,10 +233,11 @@ export default function ReportsTab() {
                         {new Date(r.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                       </span>
                     </div>
-                    <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8] sm:w-auto sm:px-8">
+                    <a href={`/api/reports/${r.id}/pdf`}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8] sm:w-auto sm:px-8">
                       <Icon name="files" size={15} />
                       Download
-                    </button>
+                    </a>
                   </div>
                 }
               />
