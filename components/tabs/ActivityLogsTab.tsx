@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchRecordings, fetchStats, type RecordingsResponse, type StatsResponse } from "@/lib/data";
+import { fetchRecordings, type RecordingsResponse } from "@/lib/data";
 import { useCurrentUser } from "@/lib/role";
 import LogsPanel from "../LogsPanel";
 import { Loading, PageHeader } from "../PageHeader";
@@ -13,40 +13,53 @@ export default function ActivityLogsTab() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "new" | "reviewed" | "flagged">("all");
   const [rec, setRec] = useState<RecordingsResponse | null>(null);
-  const [stats, setStats] = useState<StatsResponse | null>(null);
 
-  // Full history by default — no status filter when "all" is selected.
+  // Table feed: follows the status pill (unfiltered when "all" is selected).
   useEffect(() => {
     fetchRecordings({ sort: "newest", limit: 200, ...(status === "all" ? {} : { status: [status] }) })
       .then(setRec)
       .catch(() => {});
   }, [status]);
+
+  // Stats feed: always the full history, independent of the status pill, so
+  // the cards reflect the state of all logs.
+  const [allRec, setAllRec] = useState<RecordingsResponse | null>(null);
   useEffect(() => {
-    fetchStats().then(setStats).catch(() => {});
+    fetchRecordings({ sort: "newest", limit: 200 })
+      .then(setAllRec)
+      .catch(() => {});
   }, []);
 
   const reload = () => {
     fetchRecordings({ sort: "newest", limit: 200, ...(status === "all" ? {} : { status: [status] }) })
       .then(setRec)
       .catch(() => {});
-    fetchStats().then(setStats).catch(() => {});
+    fetchRecordings({ sort: "newest", limit: 200 })
+      .then(setAllRec)
+      .catch(() => {});
   };
 
-  const counts = useMemo(() => {
+  const tableLogs = useMemo(() => {
     const logs = rec?.data ?? [];
+    return isEmployee && employeeName
+      ? logs.filter((l) => l.employee === employeeName)
+      : logs;
+  }, [rec, isEmployee, employeeName]);
+
+  const counts = useMemo(() => {
+    const logs = allRec?.data ?? [];
     const mine = isEmployee && employeeName
       ? logs.filter((l) => l.employee === employeeName)
       : logs;
     return {
-      logs: mine,
-      total: isEmployee ? mine.length : (rec?.total ?? logs.length),
+      total: isEmployee ? mine.length : (allRec?.total ?? logs.length),
       new: mine.filter((l) => l.status === "new" || l.isNew).length,
       reviewed: mine.filter((l) => l.status === "reviewed").length,
       flagged: mine.filter((l) => l.status === "flagged").length,
     };
-  }, [rec, isEmployee, employeeName]);
+  }, [allRec, isEmployee, employeeName]);
 
-  if (!rec) return <Loading label="activity logs" />;
+  if (!rec || !allRec) return <Loading label="activity logs" />;
 
   return (
     <div>
@@ -78,13 +91,13 @@ export default function ActivityLogsTab() {
                 : "border border-[#e3e3e3] bg-white text-[#4d4d4d] hover:bg-[#f8f8f8]"
             }`}
           >
-            {s === "all" ? `All (${stats ? stats.todaysRecordings + "+" : counts.total})` : s}
+            {s === "all" ? "All" : s}
           </button>
         ))}
       </div>
       <div className="mt-4">
         <LogsPanel
-          logs={counts.logs}
+          logs={tableLogs}
           searchQuery={query}
           hideEmployee={isEmployee}
           title={isEmployee ? "My Activity Logs" : "All Employee Logs"}
