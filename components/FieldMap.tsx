@@ -71,8 +71,7 @@ export default function FieldMap({
               tiles: [
                 "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
               ],
-              tileSize: 256,
-              attribution: "Esri World Imagery",
+              tileSize: 256
             },
             osm: {
               type: "raster",

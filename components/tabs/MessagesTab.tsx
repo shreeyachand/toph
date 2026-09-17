@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 
 interface Msg { id: string; sender: string; body: string; created_at: string; }
 interface Convo { id: string; subject: string | null; updated_at: string; messages: Msg[]; }
@@ -53,11 +53,11 @@ export default function MessagesTab() {
   return (
     <div>
       <PageHeader title="Messages" subtitle="Crew threads and announcements" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="mail" label="Conversations" value={convos.length} />
         <StatCard icon="audio-lines" label="Total Messages" value={totalMsgs} />
         <StatCard icon="users" label="Participants" value={new Set(convos.flatMap((c) => c.messages.map((m) => m.sender))).size} />
-      </div>
+      </StatGrid>
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1.5fr]">
         <section className="overflow-hidden rounded-2xl border border-[#ececec] bg-white">
           <p className="px-4 pt-4 text-[15px] font-medium text-black sm:px-5">Threads ({visible.length})</p>

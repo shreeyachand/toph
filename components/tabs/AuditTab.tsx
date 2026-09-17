@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 import { MenuShell, Pill } from "../LogsPanel";
 
 interface Audit { id: string; title: string; due_date: string | null; status: string; assignee: string; notes: string | null; findings: number; }
@@ -70,12 +70,12 @@ export default function AuditTab() {
   return (
     <div>
       <PageHeader title="Audit Manager" subtitle="Compliance reviews, due dates and findings" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid cols={4}>
         <StatCard icon="book-check" label="Total Audits" value={audits.length} />
         <StatCard icon="calendar" label="Open" value={audits.filter((a) => a.status === "open").length} />
         <StatCard icon="clipboard-pen" label="In Progress" value={audits.filter((a) => a.status === "in_progress").length} />
         <StatCard icon="x" label="Findings" value={audits.reduce((s, a) => s + a.findings, 0)} />
-      </div>
+      </StatGrid>
 
       <section className="mt-4 overflow-hidden rounded-2xl border border-[#ececec] bg-white">
         {/* Panel header */}

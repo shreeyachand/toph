@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 
 interface Review { id: string; employee: string; period: string; score: number; notes: string | null; }
 
@@ -29,11 +29,11 @@ export default function PerformanceTab() {
   return (
     <div>
       <PageHeader title="Performance" subtitle="April review scores and coaching notes" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="chart-pie" label="Average Score" value={avg} />
         <StatCard icon="star" label="Top Performer" value={top ? top.employee.split(" ")[0] : "—"} suffix={top ? `${top.score} pts` : undefined} />
         <StatCard icon="users" label="Reviewed" value={reviews.length} suffix="employees" />
-      </div>
+      </StatGrid>
       <section className="mt-4 overflow-hidden rounded-2xl border border-[#ececec] bg-white p-4 sm:p-5">
         <p className="flex items-center gap-2 text-[15px] font-medium text-black"><Icon name="chart-pie" size={16} /> Scores ({visible.length})</p>
         <ul className="mt-4 space-y-4">

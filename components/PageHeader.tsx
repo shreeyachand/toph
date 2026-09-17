@@ -1,4 +1,8 @@
+"use client";
+
+import { useContext } from "react";
 import Icon from "./Icon";
+import { MobileNav, ShellContext } from "./Sidebar";
 
 export function PageHeader({
   title,
@@ -6,25 +10,43 @@ export function PageHeader({
   query,
   setQuery,
   live,
+  nav,
 }: {
   title: string;
   subtitle: string;
   query?: string;
   setQuery?: (q: string) => void;
   live?: boolean;
+  nav?: React.ReactNode;
 }) {
+  const shell = useContext(ShellContext);
+  const menu =
+    nav ??
+    (shell ? (
+      <MobileNav
+        farm={shell.farm}
+        role={shell.role}
+        active={shell.active}
+        onNavigate={shell.onNavigate}
+        className="mt-[1px]"
+      />
+    ) : null);
+
   return (
-    <div className="flex flex-wrap items-start gap-3">
-      <div>
-        <h1 className="text-[20px] font-semibold tracking-tight text-black">{title}</h1>
-        <p className="text-[14px] text-[#4d4d4d]">
-          {subtitle}
-          {live === false && (
-            <span className="ml-2 rounded-full bg-[#f2f2f2] px-2 py-0.5 text-[11px] text-[#808080]">
-              mock data — connect Supabase to go live
-            </span>
-          )}
-        </p>
+    <div className="sticky top-0 z-30 -mx-3 flex flex-wrap items-start gap-3 border-b border-[#f0f0f0] bg-white px-3 pb-3 pt-3 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+      <div className="flex min-w-0 items-start gap-2.5">
+        {menu}
+        <div className="min-w-0">
+          <h1 className="text-[20px] font-semibold tracking-tight text-black">{title}</h1>
+          <p className="text-[14px] text-[#4d4d4d]">
+            {subtitle}
+            {live === false && (
+              <span className="ml-2 rounded-full bg-[#f2f2f2] px-2 py-0.5 text-[11px] text-[#808080]">
+                mock data — connect Supabase to go live
+              </span>
+            )}
+          </p>
+        </div>
       </div>
       {setQuery !== undefined && (
         <label className="ml-auto flex w-full max-w-[370px] items-center gap-2 rounded-full border border-[#e7e7e7] bg-white px-3.5 py-2 text-[14px] text-[#b3b3b3] focus-within:border-[#b3b3b3]">

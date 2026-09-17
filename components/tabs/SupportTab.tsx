@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 
 interface Ticket { id: string; subject: string; body: string | null; status: string; requester: string | null; created_at: string; }
 
@@ -45,11 +45,11 @@ export default function SupportTab() {
   return (
     <div>
       <PageHeader title="Support" subtitle="Help requests and device issues from the crew" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="handshake" label="Open Tickets" value={tickets.filter((t) => t.status === "open").length} />
         <StatCard icon="calendar" label="Pending" value={tickets.filter((t) => t.status === "pending").length} />
         <StatCard icon="book-check" label="Resolved" value={tickets.filter((t) => t.status === "resolved").length} />
-      </div>
+      </StatGrid>
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1.4fr]">
         <section className="h-fit rounded-2xl border border-[#ececec] bg-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-[15px] font-medium text-black"><Icon name="handshake" size={16} /> New ticket</p>

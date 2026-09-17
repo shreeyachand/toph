@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EmployeeLog } from "@/lib/types";
 import FieldMap, { type MapField } from "./FieldMap";
 import Icon from "./Icon";
@@ -64,14 +64,52 @@ export function Pill({
   );
 }
 
+export interface MenuCoords {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+}
+
+/** Viewport-anchored position for a dropdown under its trigger button. */
+export function menuCoordsFor(
+  rect: DOMRect,
+  align: "left" | "right"
+): MenuCoords {
+  const MENU_W = 208; // w-52
+  const GAP = 8;
+  const EST_H = 320;
+  const pad = 8;
+  const maxEdge = Math.max(pad, window.innerWidth - MENU_W - pad);
+  const below = window.innerHeight - rect.bottom - GAP;
+  const vertical =
+    below >= EST_H || below >= rect.top
+      ? { top: Math.round(rect.bottom + GAP) }
+      : { bottom: Math.round(window.innerHeight - rect.top + GAP) };
+  return align === "left"
+    ? {
+        ...vertical,
+        left: Math.round(Math.min(Math.max(rect.left, pad), maxEdge)),
+      }
+    : {
+        ...vertical,
+        right: Math.round(
+          Math.min(Math.max(window.innerWidth - rect.right, pad), maxEdge)
+        ),
+      };
+}
+
 export function MenuShell({
   onClose,
   children,
   align = "right",
+  pos = null,
 }: {
   onClose: () => void;
   children: React.ReactNode;
   align?: "right" | "left";
+  /** When provided, the panel is viewport-fixed at these coords (ignores `align`). */
+  pos?: MenuCoords | null;
 }) {
   return (
     <>
@@ -79,12 +117,15 @@ export function MenuShell({
         aria-hidden
         tabIndex={-1}
         onClick={onClose}
-        className="fixed inset-0 z-10 cursor-default bg-transparent"
+        className="fixed inset-0 z-40 cursor-default bg-transparent"
       />
       <div
         role="menu"
-        className={`absolute top-[calc(100%+8px)] z-20 w-52 overflow-hidden rounded-xl border border-[#ececec] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.12)] ${
-          align === "right" ? "right-0" : "left-0"
+        style={pos ?? undefined}
+        className={`${
+          pos ? "fixed" : "absolute top-[calc(100%+8px)]"
+        } z-40 w-52 overflow-hidden rounded-xl border border-[#ececec] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.12)] ${
+          pos ? "" : align === "right" ? "right-0" : "left-0"
         }`}
       >
         {children}
@@ -173,6 +214,51 @@ export default function LogsPanel({
   const [activity, setActivity] = useState<string>("all");
   const [field, setField] = useState<string>("all");
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+  // Anchors + viewport coords so dropdowns sit directly under their pill.
+  const sortAnchorRef = useRef<HTMLDivElement>(null);
+  const filterAnchorRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<MenuCoords | null>(null);
+
+  const placeMenu = (menu: Exclude<OpenMenu, null>) => {
+    const anchor =
+      (menu === "sort" ? sortAnchorRef : filterAnchorRef).current;
+    const rect = anchor?.getBoundingClientRect();
+    if (!rect) {
+      setOpenMenu(null);
+      return;
+    }
+    setMenuPos(menuCoordsFor(rect, menu === "sort" ? "left" : "right"));
+  };
+
+  const toggleMenuAnchored = (
+    menu: Exclude<OpenMenu, null>,
+    anchorRef: React.RefObject<HTMLDivElement | null>
+  ) => {
+    if (openMenu === menu) {
+      setOpenMenu(null);
+      return;
+    }
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos(menuCoordsFor(rect, menu === "sort" ? "left" : "right"));
+    setOpenMenu(menu);
+  };
+
+  // Keep the open menu glued to its pill across scroll/resize; Esc closes.
+  useEffect(() => {
+    if (!openMenu) return;
+    const onMove = () => placeMenu(openMenu);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenu(null);
+    };
+    window.addEventListener("resize", onMove);
+    document.addEventListener("scroll", onMove, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", onMove);
+      document.removeEventListener("scroll", onMove, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openMenu ]);
 
   // Anchor relative date filters to the newest log so mock + live data behave.
   const anchorIso = useMemo(
@@ -281,9 +367,6 @@ export default function LogsPanel({
     );
   };
 
-  const toggleMenu = (menu: Exclude<OpenMenu, null>) =>
-    setOpenMenu((cur) => (cur === menu ? null : menu));
-
   return (
     <section className="overflow-hidden rounded-2xl border border-[#ececec] bg-white">
       {/* Panel header — pills scroll horizontally on mobile, wrap on sm+ */}
@@ -294,49 +377,18 @@ export default function LogsPanel({
             New Employee Logs{" "}
             <span className="font-normal text-[#b3b3b3]">({visible.length})</span>
           </p>
-          {/* Mobile View All — column headers are desktop-only */}
-          <button
-            onClick={toggleExpandAll}
-            aria-expanded={allExpanded}
-            className="ml-auto rounded-full border border-[#e3e3e3] px-3.5 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5] md:hidden"
-          >
-            {allExpanded ? "Close All" : "View All"}
-          </button>
         </div>
         <div className="nice-scroll -mx-4 flex flex-nowrap items-center gap-2 overflow-x-auto px-4 pb-0.5 lg:mx-0 lg:ml-auto lg:flex-wrap lg:justify-end lg:overflow-visible lg:px-0">
           {/* Sort */}
-          <div className="relative shrink-0">
+          <div ref={sortAnchorRef} className="shrink-0">
             <Pill
               icon="list-filter"
-              onClick={() => toggleMenu("sort")}
+              onClick={() => toggleMenuAnchored("sort", sortAnchorRef)}
               ariaExpanded={openMenu === "sort"}
               ariaLabel={`Sort logs, current: ${sortLabel}`}
             >
               {sortMode === "newest" ? "Sort" : sortLabel}
             </Pill>
-            {openMenu === "sort" && (
-              <MenuShell onClose={() => setOpenMenu(null)}>
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    role="menuitemradio"
-                    aria-checked={sortMode === opt.value}
-                    onClick={() => {
-                      setSortMode(opt.value);
-                      setOpenMenu(null);
-                    }}
-                    className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] hover:bg-[#f8f8f8] ${
-                      sortMode === opt.value
-                        ? "font-semibold text-black"
-                        : "text-[#4d4d4d]"
-                    }`}
-                  >
-                    {opt.label}
-                    {sortMode === opt.value && <span aria-hidden>✓</span>}
-                  </button>
-                ))}
-              </MenuShell>
-            )}
           </div>
 
           {/* Active filters — dark pills inline, Figma style */}
@@ -378,18 +430,45 @@ export default function LogsPanel({
           )}
 
           {/* Filter */}
-          <div className="relative shrink-0">
+          <div ref={filterAnchorRef} className="shrink-0">
             <Pill
               active={activeFilterCount > 0}
               icon="funnel"
-              onClick={() => toggleMenu("filter")}
+              onClick={() => toggleMenuAnchored("filter", filterAnchorRef)}
               ariaExpanded={openMenu === "filter"}
               ariaLabel="Open filters"
             >
               Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
             </Pill>
-            {openMenu === "filter" && (
-              <MenuShell onClose={() => setOpenMenu(null)}>
+          </div>
+          </div>
+          {/* Dropdowns are viewport-fixed under their pill (see menuPos), so
+              the scroll row's mobile overflow can't clip them. */}
+          {openMenu === "sort" && (
+            <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  role="menuitemradio"
+                  aria-checked={sortMode === opt.value}
+                  onClick={() => {
+                    setSortMode(opt.value);
+                    setOpenMenu(null);
+                  }}
+                  className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] hover:bg-[#f8f8f8] ${
+                    sortMode === opt.value
+                      ? "font-semibold text-black"
+                      : "text-[#4d4d4d]"
+                  }`}
+                >
+                  {opt.label}
+                  {sortMode === opt.value && <span aria-hidden>✓</span>}
+                </button>
+              ))}
+            </MenuShell>
+          )}
+          {openMenu === "filter" && (
+            <MenuShell pos={menuPos} onClose={() => setOpenMenu(null)}>
                 <div className="space-y-3 px-4 py-3.5">
                   <label className="block">
                     <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">
@@ -452,8 +531,6 @@ export default function LogsPanel({
                 </div>
               </MenuShell>
             )}
-          </div>
-        </div>
       </div>
 
       {/* Column headers */}
@@ -492,9 +569,25 @@ export default function LogsPanel({
               key={log.id}
               className={expanded ? "bg-[#fafafa]" : "bg-white"}
             >
-              <div className="grid grid-cols-[28px_1fr_auto] items-center gap-2 px-4 py-3.5 text-[14px] text-[#4d4d4d] sm:px-5 md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]">
+              <div
+                onClick={() => toggleExpanded(log.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleExpanded(log.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-expanded={expanded}
+                aria-label={`${log.employee} log — ${log.activity} in ${log.field}, ${expanded ? "collapse" : "expand"}`}
+                className="grid cursor-pointer grid-cols-[28px_1fr] items-center gap-2 px-4 py-3.5 text-[14px] text-[#4d4d4d] sm:px-5 md:cursor-default md:grid-cols-[44px_1.2fr_1fr_1fr_0.8fr_1.2fr_92px]"
+              >
                 <button
-                  onClick={() => toggleSelect(log.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(log.id);
+                  }}
                   aria-label={`Select ${log.employee}`}
                   aria-pressed={selected.has(log.id)}
                   className={`flex h-4 w-4 items-center justify-center rounded-[4px] border ${
@@ -524,13 +617,18 @@ export default function LogsPanel({
                 <span className="hidden truncate md:block">{log.date}</span>
                 <span className="hidden truncate md:block">{log.field}</span>
                 <span className="hidden truncate md:block">{log.time}</span>
-                {/* mobile sub-line */}
-                <span className="col-span-1 truncate text-[12px] text-[#b3b3b3] md:hidden">
-                  {log.activity} · {log.date} · {log.field}
-                </span>
-                <span className="text-right">
+                {/* mobile sub-line — hidden until expanded, full row width */}
+                {expanded && (
+                  <span className="col-span-2 truncate text-[12px] text-[#b3b3b3] md:hidden">
+                    {log.activity} · {log.date} · {log.field}
+                  </span>
+                )}
+                <span className="hidden text-right md:block">
                   <button
-                    onClick={() => toggleExpanded(log.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpanded(log.id);
+                    }}
                     aria-expanded={expanded}
                     className="rounded-full border border-[#e9e9e9] bg-white px-4 py-1.5 text-[13px] text-[#4d4d4d] hover:bg-[#f5f5f5]"
                   >

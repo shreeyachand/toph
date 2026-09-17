@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 import { MenuShell, Pill } from "../LogsPanel";
 
 interface Report { id: string; title: string; type: string; created_at: string; generated_by: string; }
@@ -87,11 +87,11 @@ export default function ReportsTab() {
   return (
     <div>
       <PageHeader title="Reports" subtitle="Saved exports and summaries for auditors and payroll" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="files" label="Saved Reports" value={reports.length} />
         <StatCard icon="calendar" label="This Month" value={reports.filter((r) => r.created_at.startsWith("2026-04")).length} />
         <StatCard icon="users" label="Contributors" value={new Set(reports.map((r) => r.generated_by)).size} />
-      </div>
+      </StatGrid>
 
       {/* Generate form */}
       <section className="mt-4 rounded-2xl border border-[#ececec] bg-white p-4 sm:px-5">

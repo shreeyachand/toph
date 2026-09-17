@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchRecordings, fetchStats, type RecordingsResponse, type StatsResponse } from "@/lib/data";
 import LogsPanel from "../LogsPanel";
 import { Loading, PageHeader } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 
 /** Activity Logs tab: full-width log feed with status + stat summaries. */
 export default function ActivityLogsTab() {
@@ -43,12 +43,12 @@ export default function ActivityLogsTab() {
         setQuery={setQuery}
         live={rec.live}
       />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid cols={4}>
         <StatCard icon="audio-lines" label="Total Logs" value={counts.total} />
         <StatCard icon="star" label="New" value={counts.new} suffix="Needs review" />
         <StatCard icon="book-check" label="Reviewed" value={counts.reviewed} />
-        <StatCard icon="x" label="Flagged" value={counts.flagged} />
-      </div>
+        <StatCard icon="flag" label="Flagged" value={counts.flagged} />
+      </StatGrid>
       <div className="mt-4 flex flex-wrap gap-2">
         {(["all", "new", "reviewed", "flagged"] as const).map((s) => (
           <button

@@ -4,8 +4,8 @@ import { useState } from "react";
 import type { DashboardData } from "@/lib/data";
 import Icon from "./Icon";
 import LogsPanel from "./LogsPanel";
-import Sidebar, { type TabKey } from "./Sidebar";
-import StatCard from "./StatCard";
+import Sidebar, { MobileNav, type TabKey } from "./Sidebar";
+import StatCard, { StatGrid } from "./StatCard";
 
 export default function Dashboard({
   data,
@@ -23,28 +23,29 @@ export default function Dashboard({
       <Sidebar farm={data.farm} role={data.role} active={active} onNavigate={onNavigate} />
 
       <main className="min-w-0 flex-1">
-        {/* Mobile top bar */}
-        <div className="mb-3 flex items-center gap-2 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#146c44] text-[14px] font-semibold text-white">
-            {data.farm.charAt(0)}
-          </div>
-          <p className="text-[14px] font-semibold">{data.farm}</p>
-        </div>
-
-        {/* Header */}
-        <div className="flex flex-wrap items-start gap-3">
-          <div>
-            <h1 className="text-[20px] font-semibold tracking-tight text-black">
-              Dashboard
-            </h1>
-            <p className="text-[14px] text-[#4d4d4d]">
-              An overview of your farm and employee activity
-              {!data.live && (
-                <span className="ml-2 rounded-full bg-[#f2f2f2] px-2 py-0.5 text-[11px] text-[#808080]">
-                  mock data — connect Supabase to go live
-                </span>
-              )}
-            </p>
+        {/* Header — sticky on mobile */}
+        <div className="sticky top-0 z-30 -mx-3 flex flex-wrap items-start gap-3 border-b border-[#f0f0f0] bg-white px-3 pb-3 pt-3 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <MobileNav
+              farm={data.farm}
+              role={data.role}
+              active={active}
+              onNavigate={onNavigate}
+              className="mt-[1px]"
+            />
+            <div className="min-w-0">
+              <h1 className="text-[20px] font-semibold tracking-tight text-black">
+                Dashboard
+              </h1>
+              <p className="text-[14px] text-[#4d4d4d]">
+                An overview of your farm and employee activity
+                {!data.live && (
+                  <span className="ml-2 rounded-full bg-[#f2f2f2] px-2 py-0.5 text-[11px] text-[#808080]">
+                    mock data — connect Supabase to go live
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
           <label className="ml-auto flex w-full max-w-[370px] items-center gap-2 rounded-full border border-[#e7e7e7] bg-white px-3.5 py-2 text-[14px] text-[#b3b3b3] focus-within:border-[#b3b3b3]">
             <Icon name="search" size={15} />
@@ -58,7 +59,7 @@ export default function Dashboard({
         </div>
 
         {/* Stat cards */}
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatGrid cols={3}>
           <StatCard
             icon="calendar"
             label="Todays Recordings"
@@ -75,7 +76,7 @@ export default function Dashboard({
             label="Response Accuracy"
             value={data.stats.responseAccuracy}
           />
-        </div>
+        </StatGrid>
 
         {/* Logs */}
         <div className="mt-4">

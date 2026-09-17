@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import FieldMap from "../FieldMap";
 import Icon from "../Icon";
 import { Loading, PageHeader } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 
 interface FieldRow {
   id: string; name: string; block: string | null; acreage: number | string | null;
@@ -36,11 +36,11 @@ export default function MapTab() {
   return (
     <div>
       <PageHeader title="Map" subtitle="Fields, acreage and recent recording activity" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="map" label="Total Fields" value={fields.length} />
         <StatCard icon="expand" label="Total Acreage" value={totalAcres.toFixed(1)} suffix="acres" />
         <StatCard icon="audio-lines" label="Fields With Logs" value={fields.filter((f) => f.logs > 0).length} />
-      </div>
+      </StatGrid>
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <section className="overflow-hidden rounded-2xl border border-[#ececec] bg-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-[15px] font-medium text-black">

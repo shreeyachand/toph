@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 import { MenuShell, Pill } from "../LogsPanel";
 
 interface Evt { id: string; title: string; kind: string; employee: string; field: string; starts_at: string; ends_at: string; notes: string | null; }
@@ -153,11 +153,11 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
   return (
     <div>
       <PageHeader title="Schedule" subtitle="Shifts, tasks and time off across the crew" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="calendar" label="Scheduled Events" value={events.length} />
         <StatCard icon="users" label="Shifts" value={events.filter((e) => e.kind === "shift").length} />
         <StatCard icon="clipboard-pen" label="Tasks" value={events.filter((e) => e.kind === "task").length} />
-      </div>
+      </StatGrid>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {["all", "shift", "task", "time_off"].map((k) => (

@@ -6,7 +6,7 @@ import { fetchRecordings } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import Icon from "../Icon";
 import { Loading, PageHeader, StatusPill } from "../PageHeader";
-import StatCard from "../StatCard";
+import StatCard, { StatGrid } from "../StatCard";
 
 interface Employee { id: string; full_name: string; role: string; phone: string | null; email: string | null; status: string; hire_date: string | null; }
 
@@ -64,11 +64,11 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (nam
   return (
     <div>
       <PageHeader title="Employees" subtitle="Active crew, roles and recording volume" query={query} setQuery={setQuery} live={live} />
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <StatGrid cols={3}>
         <StatCard icon="users" label="Active Workers" value={employees.length} />
         <StatCard icon="audio-lines" label="Workers With Logs" value={logsByEmployee.size} />
         <StatCard icon="star" label="Admins" value={employees.filter((e) => e.role === "admin").length} />
-      </div>
+      </StatGrid>
       <section className="mt-4 overflow-hidden rounded-2xl border border-[#ececec] bg-white">
         <p className="flex items-center gap-2 px-4 pt-4 text-[15px] font-medium text-black sm:px-5">
           <Icon name="users" size={16} /> Crew <span className="font-normal text-[#b3b3b3]">({visible.length})</span>

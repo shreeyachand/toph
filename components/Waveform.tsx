@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+/** Bar + gap geometry (px) — must match the classes on the row and bars. */
+const BAR_WIDTH = 2;
+const BAR_GAP = 3;
+/** Upper bound of bars for very wide containers. Cheap to render. */
+const MAX_BARS = 200;
 
 /** Deterministic pseudo-random bar heights so SSR/CSR match. */
 function barHeights(count: number, seed = 7): number[] {
@@ -24,12 +30,40 @@ export default function Waveform({
   progress?: number;
   playing?: boolean;
 }) {
-  const bars = useMemo(() => barHeights(120), []);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [rowWidth, setRowWidth] = useState(0);
+
+  // Fit the bar count to the rendered width so bars never shrink to zero
+  // on narrow (mobile) containers. Prefix-sliced, so resizes stay stable.
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setRowWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const allBars = useMemo(() => barHeights(MAX_BARS), []);
+  const count =
+    rowWidth > 0
+      ? Math.max(
+          24,
+          Math.min(
+            MAX_BARS,
+            Math.floor((rowWidth + BAR_GAP) / (BAR_WIDTH + BAR_GAP))
+          )
+        )
+      : 24;
+  const bars = allBars.slice(0, count);
   const playedCount = Math.floor(bars.length * progress);
 
   return (
     <div
-      className="flex h-[80px] items-center gap-[3px]"
+      ref={rowRef}
+      className="flex h-[80px] items-center gap-[3px] overflow-hidden"
       role="img"
       aria-label="Audio waveform"
     >
@@ -37,7 +71,7 @@ export default function Waveform({
         <span
           key={i}
           style={{ height: `${h}px` }}
-          className={`w-[2px] rounded-full transition-colors ${
+          className={`w-[2px] shrink-0 rounded-full transition-colors ${
             i < playedCount ? "bg-[#0d4a32]" : "bg-[#cfd8d3]"
           } ${playing && i === playedCount ? "animate-pulse" : ""}`}
         />

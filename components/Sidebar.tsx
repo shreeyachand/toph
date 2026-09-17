@@ -1,3 +1,6 @@
+"use client";
+
+import { createContext, useEffect, useState } from "react";
 import Link from "next/link";
 import Icon from "./Icon";
 
@@ -25,6 +28,16 @@ interface NavSection {
   title: string;
   items: NavItem[];
 }
+
+/** Nav state shared by the shell so headers can render the menu button inline. */
+export interface ShellNav {
+  farm: string;
+  role: string;
+  active: TabKey;
+  onNavigate?: (tab: TabKey) => void;
+}
+
+export const ShellContext = createContext<ShellNav | null>(null);
 
 /** Canonical URL for every tab — refreshing keeps you on the same view. */
 export const TAB_PATHS: Record<TabKey, string> = {
@@ -88,25 +101,152 @@ export default function Sidebar({
 }) {
   return (
     <aside className="hidden lg:flex w-[270px] shrink-0 flex-col rounded-2xl border border-[#ececec] bg-white p-4">
-      {/* User header */}
-      <div className="flex items-center gap-2.5 px-1 pb-4">
-        <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-[#146c44] text-[15px] font-semibold text-white">
-          {farm.charAt(0)}
-        </div>
-        <div className="leading-tight">
-          <p className="text-[13px] font-semibold text-black">{farm}</p>
-          <p className="flex items-center gap-1 text-[12px] text-[#b3b3b3]">
-            <Icon name="user-star" size={10} />
-            {role}
-          </p>
-        </div>
+      <SidebarBody
+        farm={farm}
+        role={role}
+        active={active}
+        onNavigate={onNavigate}
+      />
+    </aside>
+  );
+}
+
+/** Mobile menu button + slide-over drawer. Meant to sit inline with the page title. */
+export function MobileNav({
+  farm,
+  role,
+  active,
+  onNavigate,
+  className = "",
+}: {
+  farm: string;
+  role: string;
+  active: TabKey;
+  onNavigate?: (tab: TabKey) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open ]);
+
+  return (
+    <>
+      <span className={`inline-flex shrink-0 lg:hidden ${className}`}>
         <button
-          aria-label="Inbox"
-          className="ml-auto rounded-lg p-1.5 text-[#4d4d4d] hover:bg-[#f5f5f5]"
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Open navigation menu"
+          aria-expanded={open}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e7e7e7] bg-white text-black hover:bg-[#f5f5f5]"
         >
-          <Icon name="inbox" size={16} />
+          <span aria-hidden="true" className="flex flex-col gap-[3px]">
+            <span className="block h-[2px] w-4 rounded bg-current" />
+            <span className="block h-[2px] w-4 rounded bg-current" />
+            <span className="block h-[2px] w-4 rounded bg-current" />
+          </span>
         </button>
-      </div>
+      </span>
+
+      {/* Drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site navigation"
+            className="absolute left-0 top-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-white p-4 shadow-xl"
+          >
+            <div className="flex items-center gap-2.5 px-1 pb-4">
+              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-[#146c44] text-[15px] font-semibold text-white">
+                {farm.charAt(0)}
+              </div>
+              <div className="leading-tight">
+                <p className="text-[13px] font-semibold text-black">{farm}</p>
+                <p className="flex items-center gap-1 text-[12px] text-[#b3b3b3]">
+                  <Icon name="user-star" size={10} />
+                  {role}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close navigation menu"
+                className="ml-auto rounded-lg p-1.5 text-[#4d4d4d] hover:bg-[#f5f5f5]"
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto nice-scroll">
+              <SidebarBody
+                farm={farm}
+                role={role}
+                active={active}
+                hideHeader
+                onNavigate={(tab) => {
+                  onNavigate?.(tab);
+                  setOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SidebarBody({
+  farm,
+  role,
+  active,
+  onNavigate,
+  hideHeader = false,
+}: {
+  farm: string;
+  role: string;
+  active: TabKey;
+  onNavigate?: (tab: TabKey) => void;
+  hideHeader?: boolean;
+}) {
+  return (
+    <>
+      {/* User header */}
+      {!hideHeader && (
+        <div className="flex items-center gap-2.5 px-1 pb-4">
+          <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-[#146c44] text-[15px] font-semibold text-white">
+            {farm.charAt(0)}
+          </div>
+          <div className="leading-tight">
+            <p className="text-[13px] font-semibold text-black">{farm}</p>
+            <p className="flex items-center gap-1 text-[12px] text-[#b3b3b3]">
+              <Icon name="user-star" size={10} />
+              {role}
+            </p>
+          </div>
+          <button
+            aria-label="Inbox"
+            className="ml-auto rounded-lg p-1.5 text-[#4d4d4d] hover:bg-[#f5f5f5]"
+          >
+            <Icon name="inbox" size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Nav sections */}
       <nav className="flex-1 space-y-5 overflow-y-auto nice-scroll">
@@ -160,6 +300,6 @@ export default function Sidebar({
           </a>
         ))}
       </div>
-    </aside>
+    </>
   );
 }
