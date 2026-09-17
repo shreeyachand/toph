@@ -4,15 +4,23 @@ import { useState } from "react";
 import type { DashboardData } from "@/lib/data";
 import Icon from "./Icon";
 import LogsPanel from "./LogsPanel";
-import Sidebar from "./Sidebar";
+import Sidebar, { type TabKey } from "./Sidebar";
 import StatCard from "./StatCard";
 
-export default function Dashboard({ data }: { data: DashboardData }) {
+export default function Dashboard({
+  data,
+  active = "dashboard",
+  onNavigate = () => {},
+}: {
+  data: DashboardData;
+  active?: TabKey;
+  onNavigate?: (tab: TabKey) => void;
+}) {
   const [query, setQuery] = useState("");
 
   return (
     <div className="flex min-h-screen gap-4 bg-white p-3 md:p-4">
-      <Sidebar farm={data.farm} role={data.role} />
+      <Sidebar farm={data.farm} role={data.role} active={active} onNavigate={onNavigate} />
 
       <main className="min-w-0 flex-1">
         {/* Mobile top bar */}

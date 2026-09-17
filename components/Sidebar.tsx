@@ -1,9 +1,22 @@
 import Icon from "./Icon";
 
+export type TabKey =
+  | "dashboard"
+  | "activity"
+  | "map"
+  | "audit"
+  | "reports"
+  | "schedule"
+  | "employees"
+  | "performance"
+  | "messages"
+  | "settings"
+  | "support";
+
 interface NavItem {
   icon: string;
   label: string;
-  active?: boolean;
+  tab: TabKey;
   badge?: string;
 }
 
@@ -16,32 +29,32 @@ const SECTIONS: NavSection[] = [
   {
     title: "Overview",
     items: [
-      { icon: "chart-line", label: "Dashboard", active: true, badge: "1" },
-      { icon: "audio-lines", label: "Activity Logs" },
-      { icon: "map", label: "Map" },
+      { icon: "chart-line", label: "Dashboard", tab: "dashboard", badge: "1" },
+      { icon: "audio-lines", label: "Activity Logs", tab: "activity" },
+      { icon: "map", label: "Map", tab: "map" },
     ],
   },
   {
     title: "Compliance",
     items: [
-      { icon: "book-check", label: "Audit Manager" },
-      { icon: "files", label: "Reports" },
-      { icon: "calendar", label: "Schedule" },
+      { icon: "book-check", label: "Audit Manager", tab: "audit" },
+      { icon: "files", label: "Reports", tab: "reports" },
+      { icon: "calendar", label: "Schedule", tab: "schedule" },
     ],
   },
   {
     title: "Team Management",
     items: [
-      { icon: "users", label: "Employees" },
-      { icon: "chart-pie", label: "Performance" },
-      { icon: "mail", label: "Messages" },
+      { icon: "users", label: "Employees", tab: "employees" },
+      { icon: "chart-pie", label: "Performance", tab: "performance" },
+      { icon: "mail", label: "Messages", tab: "messages" },
     ],
   },
   {
     title: "Other",
     items: [
-      { icon: "cog", label: "Settings" },
-      { icon: "handshake", label: "Support" },
+      { icon: "cog", label: "Settings", tab: "settings" },
+      { icon: "handshake", label: "Support", tab: "support" },
     ],
   },
 ];
@@ -49,9 +62,13 @@ const SECTIONS: NavSection[] = [
 export default function Sidebar({
   farm,
   role,
+  active,
+  onNavigate,
 }: {
   farm: string;
   role: string;
+  active: TabKey;
+  onNavigate: (tab: TabKey) => void;
 }) {
   return (
     <aside className="hidden lg:flex w-[270px] shrink-0 flex-col rounded-2xl border border-[#ececec] bg-white p-4">
@@ -85,11 +102,10 @@ export default function Sidebar({
             <ul className="space-y-0.5">
               {section.items.map((item) => (
                 <li key={item.label}>
-                  <a
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
-                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] transition-colors ${
-                      item.active
+                  <button
+                    onClick={() => onNavigate(item.tab)}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors ${
+                      active === item.tab
                         ? "bg-[#f2f2f2] font-medium text-black"
                         : "text-[#4d4d4d] hover:bg-[#f8f8f8]"
                     }`}
@@ -101,7 +117,7 @@ export default function Sidebar({
                         {item.badge}
                       </span>
                     )}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>

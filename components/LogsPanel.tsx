@@ -24,7 +24,7 @@ const DATE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "month", label: "This month" },
 ];
 
-function Pill({
+export function Pill({
   active,
   icon,
   children,
@@ -64,7 +64,7 @@ function Pill({
   );
 }
 
-function MenuShell({
+export function MenuShell({
   onClose,
   children,
   align = "right",
