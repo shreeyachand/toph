@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EmployeeLog } from "@/lib/types";
-import FieldMap from "./FieldMap";
+import FieldMap, { type MapField } from "./FieldMap";
 import Icon from "./Icon";
 import Waveform from "./Waveform";
 
@@ -93,7 +93,7 @@ export function MenuShell({
   );
 }
 
-function LogDetail({ log }: { log: EmployeeLog }) {
+function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | null }) {
   const [playing, setPlaying] = useState(false);
   const [tagged, setTagged] = useState(false);
 
@@ -135,7 +135,7 @@ function LogDetail({ log }: { log: EmployeeLog }) {
 
       {/* Right: map */}
       <div className="min-w-0">
-        <FieldMap />
+        <FieldMap fields={mapField ? [mapField] : []} selectedId={mapField?.id} />
         <button className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8]">
           <Icon name="expand" size={15} />
           Expand Map
@@ -158,6 +158,18 @@ export default function LogsPanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  // Field polygons for the per-log mini-map (matched by field name).
+  const [fieldIndex, setFieldIndex] = useState<Record<string, MapField>>({});
+  useEffect(() => {
+    fetch("/api/fields", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const idx: Record<string, MapField> = {};
+        for (const f of j.data ?? []) idx[f.name] = f;
+        setFieldIndex(idx);
+      })
+      .catch(() => {});
+  }, []);
   const [activity, setActivity] = useState<string>("all");
   const [field, setField] = useState<string>("all");
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
@@ -528,7 +540,7 @@ export default function LogsPanel({
               </div>
               {expanded && (
                 <div className="border-t border-[#f0f0f0]">
-                  <LogDetail log={log} />
+                  <LogDetail log={log} mapField={fieldIndex[log.field] ?? null} />
                 </div>
               )}
             </li>

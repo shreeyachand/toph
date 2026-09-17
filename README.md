@@ -31,7 +31,8 @@ Migrations applied (via Supabase MCP):
 - `app_modules` — `audits`/`audit_findings`, `reports`, `schedule_events`, `performance_reviews`, `conversations`/`messages`, `support_tickets`, `farm_settings`
 - `seed_figma_data` — 11 employees/fields/activities/logs from the Figma refs (+2 guided Q&A rows)
 - `dashboard_views` — `v_dashboard_stats`, `v_response_accuracy_daily`
+- `enable_postgis_geo` — PostGIS extension, `fields.geom` / `center_geog` + `voice_logs.geog` (sync triggers, GiST indexes), acreage-sized polygon backfill, `v_fields_map` GeoJSON view, `logs_near_point(lat,lng,radius_m)` radius search
 
 `getDashboardData()` in `lib/data.ts` fans out to `/api/recordings` + `/api/stats` + `/api/meta` in parallel and assembles one `DashboardData` for `<Dashboard>` — the frontend composes resources, so no aggregate `/api/dashboard` endpoint. Each route falls back to mock data when Supabase is unconnected; components never import Supabase directly.
 
-Next steps: replace `FieldMap` with real tiles (Mapbox/MapLibre), wire `Waveform` + Play to stored `audio_url`, and add `audio_logs` storage bucket.
+Next steps: wire `Waveform` + Play to stored `audio_url`, add `audio_logs` storage bucket, and replace synthesized field polygons with real surveyed boundaries (import via `fields.geom`).

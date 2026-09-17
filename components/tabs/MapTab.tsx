@@ -8,7 +8,9 @@ import StatCard from "../StatCard";
 
 interface FieldRow {
   id: string; name: string; block: string | null; acreage: number | string | null;
+  calc_acres?: number | string | null;
   center_lat: number | null; center_lng: number | null; logs: number;
+  polygon: GeoJSON.Geometry | null; centroid: GeoJSON.Geometry | null;
 }
 
 /** Map tab: farm overview + per-field cards. */
@@ -44,11 +46,15 @@ export default function MapTab() {
           <p className="flex items-center gap-2 text-[15px] font-medium text-black">
             <Icon name="map" size={16} /> {active ? `${active.name} — satellite view` : "Farm overview"}
           </p>
-          <div className="mt-3"><FieldMap /></div>
+          <div className="mt-3">
+            <FieldMap fields={visible} selectedId={selected} onSelect={setSelected} />
+          </div>
           {active && (
             <div className="mt-3 flex flex-wrap gap-2 text-[13px] text-[#4d4d4d]">
               <span className="rounded-full border border-[#e3e3e3] px-3 py-1">{active.block ?? "No block"}</span>
-              <span className="rounded-full border border-[#e3e3e3] px-3 py-1">{Number(active.acreage ?? 0).toFixed(1)} acres</span>
+              <span className="rounded-full border border-[#e3e3e3] px-3 py-1">
+                {Number(active.calc_acres ?? active.acreage ?? 0).toFixed(1)} acres (PostGIS)
+              </span>
               <span className="rounded-full border border-[#e3e3e3] px-3 py-1">{active.logs} recordings</span>
               {active.center_lat != null && (
                 <span className="rounded-full border border-[#e3e3e3] px-3 py-1">

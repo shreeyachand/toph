@@ -2,19 +2,19 @@ import { getSupabaseAdmin } from "@/lib/server/supabase";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/fields — field list with acreage + center for the Map tab. */
+/** GET /api/fields — field list with PostGIS polygon + centroid for the Map tab. */
 export async function GET() {
   const fallback = [
-    { id: "field-a", name: "FIELD A", block: "Block A", acreage: 12.5, center_lat: 37.7749, center_lng: -122.4194, logs: 1 },
-    { id: "field-b", name: "FIELD B", block: "Block B", acreage: 8.2, center_lat: 37.7759, center_lng: -122.4184, logs: 1 },
+    { id: "field-a", name: "FIELD A", block: "Block A", acreage: 12.5, center_lat: 41.9795, center_lng: -93.632, logs: 1, polygon: null, centroid: null },
+    { id: "field-b", name: "FIELD B", block: "Block B", acreage: 8.2, center_lat: 41.9798, center_lng: -93.6289, logs: 1, polygon: null, centroid: null },
   ];
   const supabase = getSupabaseAdmin();
   if (!supabase) return Response.json({ data: fallback, live: false });
 
   try {
     const { data: fields, error } = await supabase
-      .from("fields")
-      .select("id, name, block, acreage, center_lat, center_lng")
+      .from("v_fields_map")
+      .select("id, name, block, acreage, calc_acres, center_lat, center_lng, polygon, centroid")
       .order("name");
     if (error) throw error;
     const { data: logs } = await supabase.from("voice_logs").select("field_id");
