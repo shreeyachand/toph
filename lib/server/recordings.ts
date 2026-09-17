@@ -1,5 +1,9 @@
 import type { EmployeeLog } from "@/lib/types";
 
+/** Storage bucket for captured audio. Created on first upload (service role)
+ *  or ahead of time in the Supabase dashboard. Not a table — no migration. */
+export const VOICE_BUCKET = "voice-logs";
+
 /** Raw `voice_logs` row with joined names, as returned by Supabase. */
 export interface VoiceLogRow {
   id: string;
@@ -59,6 +63,7 @@ export function toEmployeeLog(r: VoiceLogRow): EmployeeLog {
     field: r.fields?.name ?? "—",
     time: formatRange(r.started_at, r.ended_at),
     summary: r.summary ?? undefined,
+    transcript: r.transcript ?? undefined,
     isNew: r.status === "new",
     status: r.status,
     audioPath: r.audio_path ?? undefined,

@@ -9,8 +9,8 @@ export interface EmployeeLog {
   field: string;
   time: string; // display range, e.g. "6:00 AM - 10:40 AM"
   summary?: string;
-  isNew?: boolean;
-  /** DB-backed extras (present when loaded from Supabase). */
+  transcript?: string | null;
+  isNew?: boolean;  /** DB-backed extras (present when loaded from Supabase). */
   status?: "new" | "reviewed" | "flagged";
   audioPath?: string;
 }

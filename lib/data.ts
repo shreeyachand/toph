@@ -99,6 +99,48 @@ export function fetchRecording(id: string): Promise<{ data: RecordingDetail; liv
   return get(`/api/recordings/${id}`);
 }
 
+export interface UploadRecordingInput {
+  blob: Blob;
+  employee: string;
+  activity: string;
+  field: string;
+  durationSec: number;
+  note: string;
+  startedAt: Date;
+}
+
+/**
+ * Submit a captured voice log: audio + metadata. Resolves to the created
+ * EmployeeLog on success; throws with the server's error message otherwise
+ * (e.g. storage not configured → caller keeps a local-only entry).
+ */
+export async function uploadRecording(input: UploadRecordingInput): Promise<EmployeeLog> {
+  const form = new FormData();
+  form.set("audio", input.blob, `recording.${input.blob.type.includes("mp4") ? "m4a" : "webm"}`);
+  form.set("employee", input.employee);
+  form.set("activity", input.activity);
+  form.set("field", input.field);
+  form.set("durationSec", String(input.durationSec));
+  form.set("note", input.note);
+  form.set("startedAt", input.startedAt.toISOString());
+  const res = await fetch("/api/recordings", { method: "POST", body: form });
+  const body = (await res.json()) as { data?: EmployeeLog; error?: string };
+  if (!res.ok || !body.data) throw new Error(body.error ?? `upload failed: ${res.status}`);
+  return body.data;
+}
+
+/** Signed playback URL for a stored audio object (null when unavailable). */
+export async function fetchAudioUrl(path: string): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/recordings/audio?path=${encodeURIComponent(path)}`);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { url?: string };
+    return body.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Review action from the log detail view. */
 export async function updateRecordingStatus(
   id: string,

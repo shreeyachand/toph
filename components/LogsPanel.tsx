@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchAudioUrl } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import FieldMap, { type MapField } from "./FieldMap";
 import Icon from "./Icon";
@@ -125,6 +126,82 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
   const [playing, setPlaying] = useState(false);
   const [tagged, setTagged] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  // Signed playback URL when this log has stored audio (null = simulated).
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  // Real waveform peaks decoded from the audio (null = decorative bars).
+  const [peaks, setPeaks] = useState<number[] | null>(null);
+  // Playhead 0..1, driven by the audio clock when real audio is playing.
+  const [playhead, setPlayhead] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    setAudioUrl(null);
+    if (!log.audioPath) return;
+    let cancelled = false;
+    fetchAudioUrl(log.audioPath).then((url) => {
+      if (!cancelled) setAudioUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [log.audioPath, log.id]);
+
+  // Decode peaks once the audio URL is known so the bars match the take.
+  useEffect(() => {
+    setPeaks(null);
+    setPlayhead(0);
+    if (!audioUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(audioUrl);
+        if (!res.ok) return;
+        const buf = await res.arrayBuffer();
+        const Ctx =
+          window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        try {
+          const decoded = await ctx.decodeAudioData(buf);
+          if (cancelled) return;
+          const raw = decoded.getChannelData(0);
+          const N = 200;
+          const block = Math.max(1, Math.floor(raw.length / N));
+          const out: number[] = [];
+          for (let i = 0; i < N; i++) {
+            let max = 0;
+            const start = i * block;
+            for (let j = start; j < Math.min(start + block, raw.length); j += 10) {
+              const v = Math.abs(raw[j] ?? 0);
+              if (v > max) max = v;
+            }
+            out.push(max);
+          }
+          const peak = Math.max(...out, 0.01);
+          setPeaks(out.map((p) => p / peak));
+        } finally {
+          void ctx.close().catch(() => {});
+        }
+      } catch {
+        // Keep the decorative waveform on decode/fetch failure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [audioUrl]);
+
+  const togglePlay = () => {
+    const el = audioRef.current;
+    if (el && audioUrl) {
+      if (el.paused) void el.play().catch(() => {});
+      else el.pause();
+    } else {
+      setPlaying((p) => !p);
+    }
+  };
 
   return (
     <>
@@ -132,10 +209,44 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
       {/* Left: audio + summary */}
       <div className="min-w-0">
         <div className="overflow-hidden">
-          <Waveform playing={playing} progress={playing ? 0.62 : 0.42} />
+          <Waveform
+            playing={playing}
+            progress={audioUrl ? playhead : playing ? 0.62 : 0.42}
+            levels={peaks ?? undefined}
+            onSeek={
+              audioUrl
+                ? (ratio) => {
+                    const el = audioRef.current;
+                    if (el && el.duration > 0) {
+                      el.currentTime = ratio * el.duration;
+                      setPlayhead(ratio);
+                    }
+                  }
+                : undefined
+            }
+          />
         </div>
+        {audioUrl && (
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            preload="metadata"
+            className="hidden"
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => {
+              setPlaying(false);
+              setPlayhead(0);
+            }}
+            onLoadedMetadata={() => setPlayhead(0)}
+            onTimeUpdate={(e) => {
+              const el = e.currentTarget;
+              setPlayhead(el.duration > 0 ? el.currentTime / el.duration : 0);
+            }}
+          />
+        )}
         <button
-          onClick={() => setPlaying((p) => !p)}
+          onClick={togglePlay}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8]"
         >
           <Icon name="play" size={15} />
@@ -161,6 +272,20 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
             &quot;
           </p>
         </div>
+        {log.transcript ? (
+          <div className="mt-4">
+            <p className="text-[15px] font-medium text-black">Transcript</p>
+            <p className="mt-1.5 text-[14px] leading-relaxed text-[#4d4d4d]">
+              &quot;{log.transcript}&quot;
+            </p>
+          </div>
+        ) : (
+          log.audioPath && (
+            <p className="mt-4 text-[13px] text-[#b3b3b3]">
+              Transcription pending — check back after processing.
+            </p>
+          )
+        )}
       </div>
 
       {/* Right: map */}

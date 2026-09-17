@@ -109,6 +109,15 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
     );
   }, [events, query, kind, people]);
 
+  // Stat counts: crew-wide for admins, personal for employees.
+  const scopedEvents = useMemo(
+    () =>
+      isEmployee && employeeName
+        ? (events ?? []).filter((e) => e.employee === employeeName)
+        : (events ?? []),
+    [events, isEmployee, employeeName]
+  );
+
   const peopleOptions = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of events ?? []) counts.set(e.employee, (counts.get(e.employee) ?? 0) + 1);
@@ -167,11 +176,18 @@ export default function ScheduleTab({ initialPerson = null }: { initialPerson?: 
         setQuery={setQuery}
         live={live}
       />
-      <StatGrid cols={3}>
-        <StatCard icon="calendar" label="Scheduled Events" value={events.length} />
-        <StatCard icon="users" label="Shifts" value={events.filter((e) => e.kind === "shift").length} />
-        <StatCard icon="clipboard-pen" label="Tasks" value={events.filter((e) => e.kind === "task").length} />
-      </StatGrid>
+      {!isEmployee ? (
+        <StatGrid cols={3}>
+          <StatCard icon="calendar" label="Scheduled Events" value={events.length} />
+          <StatCard icon="users" label="Shifts" value={events.filter((e) => e.kind === "shift").length} />
+          <StatCard icon="clipboard-pen" label="Tasks" value={events.filter((e) => e.kind === "task").length} />
+        </StatGrid>
+      ) : (
+        <StatGrid cols={2}>
+          <StatCard icon="users" label="Shifts" value={scopedEvents.filter((e) => e.kind === "shift").length} />
+          <StatCard icon="clipboard-pen" label="Tasks" value={scopedEvents.filter((e) => e.kind === "task").length} />
+        </StatGrid>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {["all", "shift", "task", "time_off"].map((k) => (

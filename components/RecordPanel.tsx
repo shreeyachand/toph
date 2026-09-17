@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { uploadRecording } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import Icon from "./Icon";
 import Waveform from "./Waveform";
@@ -13,10 +14,25 @@ function fmtElapsed(totalSec: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+/** First MediaRecorder mime the browser supports (Chrome/Edge → Opus). */
+function pickMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]) {
+    try {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    } catch {
+      // ignore and try the next candidate
+    }
+  }
+  return "";
+}
+
 /**
- * Prototype voice-log recorder — frontend only. Simulates capture with a
- * timer + animated waveform; saving prepends a log to the session list.
- * Nothing is uploaded.
+ * Voice-log recorder. Captures from the mic via MediaRecorder, lets the
+ * worker review the actual take, then uploads audio + metadata to
+ * POST /api/recordings (stored in the `voice-logs` bucket + `voice_logs`
+ * row, status "new"). When capture or upload is unavailable it degrades to a
+ * local-only entry so the flow never dead-ends.
  */
 export default function RecordPanel({
   employeeName,
@@ -34,18 +50,103 @@ export default function RecordPanel({
   const [activity, setActivity] = useState(activities[0] ?? "Harvesting");
   const [field, setField] = useState(fields[0] ?? "FIELD B");
   const [note, setNote] = useState("");
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [savedFlash, setSavedFlash] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  // Object URL of the captured take for review playback (null in demo mode).
+  const [takeUrl, setTakeUrl] = useState<string | null>(null);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const blobRef = useRef<Blob | null>(null);
+  const startedAtRef = useRef<Date>(new Date());
+  const demoRef = useRef(false);
+  // Live level monitor (Web Audio analyser on the mic stream).
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastPushRef = useRef(0);
+  const [liveLevels, setLiveLevels] = useState<number[]>([]);
 
   useEffect(() => {
     setActivity(activities[0] ?? "Harvesting");
     setField(fields[0] ?? "FIELD B");
   }, [activities, fields]);
 
+  const stopTracks = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  };
+  const revokeTake = () => {
+    if (takeUrl) URL.revokeObjectURL(takeUrl);
+    setTakeUrl(null);
+  };
+  const clearTake = () => {
+    revokeTake();
+    blobRef.current = null;
+  };
+  /** Tear down the live level monitor (safe to call when inactive). */
+  const stopMonitor = () => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    setLiveLevels([]);
+  };
+  /**
+   * Feed RMS mic levels into `liveLevels` (~10/s, last ~9s) so the waveform
+   * draws what is actually being recorded. Failures fall back to the
+   * decorative animation — recording itself is unaffected.
+   */
+  const startMonitor = (stream: MediaStream) => {
+    try {
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      audioCtxRef.current = ctx;
+      const buf = new Uint8Array(analyser.fftSize);
+      const history: number[] = [];
+      lastPushRef.current = 0;
+      const tick = (t: number) => {
+        rafRef.current = requestAnimationFrame(tick);
+        if (t - lastPushRef.current < 100) return;
+        lastPushRef.current = t;
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        history.push(Math.min(1, Math.sqrt(sum / buf.length) * 3.5));
+        if (history.length > 96) history.shift();
+        setLiveLevels([...history]);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } catch {
+      // No monitor — the animated waveform stands in.
+    }
+  };
+  // Release mic + timer + monitor if the component unmounts mid-take.
   useEffect(
     () => () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      stopTimer();
+      stopTracks();
+      stopMonitor();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -55,53 +156,139 @@ export default function RecordPanel({
     [phase, elapsed]
   );
 
-  const start = () => {
-    setElapsed(0);
-    setPhase("recording");
-    if (timerRef.current) clearInterval(timerRef.current);
+  const flash = (msg: string) => {
+    setSavedFlash(msg);
+    setTimeout(() => setSavedFlash(null), 4000);
+  };
+
+  const beginTimer = () => {
+    stopTimer();
     timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
   };
 
-  const stop = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
+  const startDemo = () => {
+    demoRef.current = true;
+    setError(null);
+    setElapsed(0);
+    setPhase("recording");
+    beginTimer();
+  };
+
+  const start = async () => {
+    setError(null);
+    setElapsed(0);
+    demoRef.current = false;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError("This browser can't access the microphone.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mimeType = pickMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorderRef.current = recorder;
+      startedAtRef.current = new Date();
+      recorder.start(250);
+      startMonitor(stream);
+      setPhase("recording");
+      beginTimer();
+    } catch {
+      setError("Microphone blocked — allow access or continue in demo mode.");
+    }
+  };
+
+  const stop = async () => {
+    stopTimer();
+    stopMonitor();
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (!recorder || recorder.state === "inactive") {
+      setPhase("review");
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+      recorder.stop();
+    });
+    stopTracks();
+    const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+    revokeTake();
+    blobRef.current = blob;
+    setTakeUrl(URL.createObjectURL(blob));
     setPhase("review");
   };
 
   const cancel = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
+    stopTimer();
+    stopMonitor();
+    recorderRef.current = null;
+    stopTracks();
+    clearTake();
     setElapsed(0);
+    setError(null);
     setPhase("idle");
   };
 
-  const save = () => {
+  const buildLocalLog = (): EmployeeLog => {
     const now = new Date();
-    const iso = now.toISOString().slice(0, 10);
-    const label = now.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-    onSave({
+    return {
       id: `local-${Date.now()}`,
       employee: employeeName,
       activity,
-      date: label,
-      isoDate: iso,
+      date: now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+      isoDate: now.toISOString().slice(0, 10),
       field,
       time: `${fmtElapsed(elapsed)} recording`,
       summary: note.trim()
         ? note.trim()
-        : `Prototype voice log — ${activity.toLowerCase()} in ${field}. Audio capture not implemented yet.`,
+        : `Voice log — ${activity.toLowerCase()} in ${field}.`,
       isNew: true,
       status: "new",
-    });
+    };
+  };
+
+  const save = async () => {
+    const blob = blobRef.current;
+    // Demo take or no audio: keep a local-only entry.
+    if (demoRef.current || !blob) {
+      onSave(buildLocalLog());
+      reset("Log saved on this device (demo — no audio).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const saved = await uploadRecording({
+        blob,
+        employee: employeeName,
+        activity,
+        field,
+        durationSec: elapsed,
+        note: note.trim(),
+        startedAt: startedAtRef.current,
+      });
+      onSave(saved);
+      reset("Log saved — audio uploaded to the farm log.");
+    } catch (e) {
+      // Backend unreachable/unconfigured: don't lose the entry.
+      onSave(buildLocalLog());
+      reset(`Saved on this device — upload failed (${e instanceof Error ? e.message : "network error"}).`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const reset = (msg: string) => {
     setNote("");
     setElapsed(0);
+    setError(null);
+    clearTake();
     setPhase("idle");
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2500);
+    flash(msg);
   };
 
   return (
@@ -111,16 +298,13 @@ export default function RecordPanel({
           <Icon name="audio-lines" size={16} />
           Record today&apos;s work
         </p>
-        <span className="ml-auto rounded-full bg-[#f2f2f2] px-2.5 py-1 text-[11px] font-medium text-[#808080]">
-          Prototype — stays on this device
-        </span>
       </div>
 
       {phase === "idle" && (
         <div className="px-4 pb-5 sm:px-5">
           <p className="text-[14px] leading-relaxed text-[#808080]">
-            Tap record at the start of a task. Your audio stays here for now —
-            transcription and upload come later.
+            Tap record at the start of a task. Your take uploads to the farm
+            log when you save it.
           </p>
           <button
             type="button"
@@ -132,9 +316,21 @@ export default function RecordPanel({
             </span>
             Start recording
           </button>
+          {error && (
+            <div className="mt-3 rounded-lg bg-[#fdeaea] px-3 py-2.5 text-center">
+              <p className="text-[13px] font-medium text-[#b3261e]">{error}</p>
+              <button
+                type="button"
+                onClick={startDemo}
+                className="mt-1 text-[13px] font-medium text-[#146c44] hover:underline"
+              >
+                Continue in demo mode (no audio)
+              </button>
+            </div>
+          )}
           {savedFlash && (
             <p className="mt-3 rounded-lg bg-[#eef7f1] px-3 py-2 text-center text-[13px] font-medium text-[#146c44]">
-              Log saved to this session&apos;s list below.
+              {savedFlash}
             </p>
           )}
         </div>
@@ -148,12 +344,13 @@ export default function RecordPanel({
               <p className="text-[14px] font-medium tabular-nums text-white">
                 Recording… {fmtElapsed(elapsed)}
               </p>
-              <p className="ml-auto text-[12px] text-white/70">
-                {activity} · {field}
-              </p>
             </div>
             <div className="[&_span]:!bg-white/90">
-              <Waveform playing progress={progress} />
+              <Waveform
+                playing
+                progress={progress}
+                levels={liveLevels.length > 0 ? liveLevels : undefined}
+              />
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -182,6 +379,9 @@ export default function RecordPanel({
               <Icon name="play" size={14} />
               <p className="text-[14px] font-medium text-black">
                 {fmtElapsed(elapsed)} captured
+                {demoRef.current && (
+                  <span className="ml-2 text-[12px] font-normal text-[#b3b3b3]">(demo — no audio)</span>
+                )}
               </p>
               <button
                 type="button"
@@ -191,7 +391,11 @@ export default function RecordPanel({
                 Re-record
               </button>
             </div>
-            <Waveform progress={0.65} />
+            {takeUrl ? (
+              <audio controls src={takeUrl} className="mt-2 w-full" preload="metadata" />
+            ) : (
+              <Waveform progress={0.65} />
+            )}
           </div>
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
             <label className="block">
@@ -243,16 +447,18 @@ export default function RecordPanel({
             <button
               type="button"
               onClick={cancel}
-              className="rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8]"
+              disabled={uploading}
+              className="rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8] disabled:opacity-40"
             >
               Discard
             </button>
             <button
               type="button"
               onClick={save}
-              className="rounded-lg bg-[#146c44] py-2.5 text-[14px] font-medium text-white hover:bg-[#0f5737]"
+              disabled={uploading}
+              className="rounded-lg bg-[#146c44] py-2.5 text-[14px] font-medium text-white hover:bg-[#0f5737] disabled:opacity-40"
             >
-              Save log
+              {uploading ? "Uploading…" : "Save log"}
             </button>
           </div>
         </div>

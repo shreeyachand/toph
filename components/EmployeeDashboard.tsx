@@ -26,9 +26,9 @@ function fmtEvt(e: SchedEvt) {
 }
 
 /**
- * Employee dashboard: greeting, prototype recorder, personal stats, and
- * today's schedule. Scoped to `employeeName` throughout. The full log feed
- * lives on the Activity Logs tab, so no log table here.
+ * Employee dashboard: greeting, recorder, personal stats, and up-next
+ * schedule. Scoped to `employeeName` throughout. The full log feed lives on
+ * the Activity Logs tab and the full schedule on the Schedule tab.
  */
 export default function EmployeeDashboard({
   data,
