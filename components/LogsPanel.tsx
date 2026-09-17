@@ -134,11 +134,89 @@ export function MenuShell({
   );
 }
 
+function ExpandedMapModal({
+  log,
+  mapField,
+  onClose,
+}: {
+  log: EmployeeLog;
+  mapField?: MapField | null;
+  onClose: () => void;
+}) {
+  // Esc closes; lock background scroll while the frame is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${log.field} — expanded map`}
+        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#ececec] bg-white shadow-xl"
+      >
+        <div className="flex items-center gap-2 border-b border-[#f0f0f0] px-4 py-3.5 sm:px-5">
+          <p className="flex min-w-0 items-center gap-2 text-[15px] font-medium text-black">
+            <Icon name="map" size={16} />
+            <span className="truncate">
+              {log.field}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close expanded map"
+            autoFocus
+            className="ml-auto rounded-lg p-1.5 text-[#4d4d4d] hover:bg-[#f5f5f5]"
+          >
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+          <FieldMap
+            fields={mapField ? [mapField] : []}
+            selectedId={mapField?.id}
+            className="h-[55vh] min-h-[320px]"
+          />
+          <p className="mt-3 truncate text-[12px] text-[#b3b3b3]">
+            {log.employee} · {log.activity} · {log.date}
+          </p>
+        </div>
+        <div className="border-t border-[#f0f0f0] px-4 py-3.5 sm:px-5">
+          <button
+            onClick={onClose}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8]"
+          >
+            <Icon name="x" size={15} />
+            Close Map
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | null }) {
   const [playing, setPlaying] = useState(false);
   const [tagged, setTagged] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
   return (
+    <>
     <div className="grid gap-6 px-4 py-5 sm:px-6 sm:py-6 lg:grid-cols-2">
       {/* Left: audio + summary */}
       <div className="min-w-0">
@@ -177,12 +255,23 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
       {/* Right: map */}
       <div className="min-w-0">
         <FieldMap fields={mapField ? [mapField] : []} selectedId={mapField?.id} />
-        <button className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8]">
+        <button
+          onClick={() => setMapOpen(true)}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e3e3e3] bg-white py-2.5 text-[14px] font-medium text-black hover:bg-[#f8f8f8]"
+        >
           <Icon name="expand" size={15} />
           Expand Map
         </button>
       </div>
     </div>
+    {mapOpen && (
+      <ExpandedMapModal
+        log={log}
+        mapField={mapField}
+        onClose={() => setMapOpen(false)}
+      />
+    )}
+    </>
   );
 }
 
@@ -374,7 +463,7 @@ export default function LogsPanel({
         <div className="flex items-center gap-2">
           <p className="flex items-center gap-2 text-[15px] font-medium text-black">
             <Icon name="audio-lines" size={16} />
-            New Employee Logs{" "}
+            New Employee Log{visible.length === 1 ? "" : "s"}{" "}
             <span className="font-normal text-[#b3b3b3]">({visible.length})</span>
           </p>
         </div>

@@ -37,10 +37,13 @@ export default function FieldMap({
   fields = [],
   selectedId,
   onSelect,
+  className = "h-[340px]",
 }: {
   fields?: MapField[];
   selectedId?: string | null;
   onSelect?: (id: string) => void;
+  /** Height of the map frame (outer div keeps border/rounded/bg). */
+  className?: string;
 }) {
   const mapRef = useRef<MlMap | null>(null);
   const [mapReady, setMapReady] = useState(0);
@@ -239,7 +242,7 @@ export default function FieldMap({
   }, [mapReady, fields, selectedId]);
 
   return (
-    <div className="relative h-[340px] w-full overflow-hidden rounded-xl border border-[#ececec] bg-[#2c3a26]">
+    <div className={`relative w-full overflow-hidden rounded-xl border border-[#ececec] bg-[#2c3a26] ${className}`}>
       <div ref={attach} className="absolute inset-0" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
       {fields.length === 0 && !mapError && (
         <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-3 py-1 text-[12px] text-white">

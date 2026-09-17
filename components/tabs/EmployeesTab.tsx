@@ -91,7 +91,7 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (nam
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-[14px] font-medium text-black hover:underline">{e.full_name}</span>
-                      <span className="block truncate text-[12px] capitalize text-[#b3b3b3] md:hidden">{e.role} · {empLogs.length} logs</span>
+                      <span className="block truncate text-[12px] capitalize text-[#b3b3b3] md:hidden">{e.role} · {empLogs.length} log{empLogs.length === 1 ? "" : "s"}</span>
                     </span>
                   </button>
                   <span className="hidden text-[14px] capitalize text-[#4d4d4d] md:block">{e.role}</span>
@@ -126,7 +126,7 @@ export default function EmployeesTab({ onViewSchedule }: { onViewSchedule?: (nam
                         </dl>
                       </div>
                       <div>
-                        <p className="text-[15px] font-medium text-black">Recent logs ({empLogs.length})</p>
+                        <p className="text-[15px] font-medium text-black">Recent log{empLogs.length === 1 ? "" : "s"} ({empLogs.length})</p>
                         {empLogs.length > 0 ? (
                           <ul className="mt-2 space-y-1.5">
                             {empLogs.slice(0, 3).map((l) => (
