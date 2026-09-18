@@ -6,6 +6,7 @@ import { fetchAudioUrl, updateRecordingStatus } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import type { MapField } from "./FieldMap";
 import Icon from "./Icon";
+import TagBox, { TagChip, type TagItem } from "./TagBox";
 import Waveform from "./Waveform";
 import {
   ColumnHeaders,
@@ -137,7 +138,9 @@ function ExpandedMapModal({
 
 function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | null }) {
   const [playing, setPlaying] = useState(false);
-  const [tagged, setTagged] = useState(false);
+  // Tags on this log (null = not loaded yet — fetched by the TagBox on open).
+  const [tags, setTags] = useState<TagItem[] | null>(null);
+  const [tagBoxOpen, setTagBoxOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   // Signed playback URL when this log has stored audio (null = simulated).
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -266,16 +269,31 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
           {playing ? "Pause Recording" : "Play Recording"}
         </button>
         <button
-          onClick={() => setTagged((t) => !t)}
+          onClick={() => setTagBoxOpen((o) => !o)}
+          aria-expanded={tagBoxOpen}
           className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-[14px] font-medium transition-colors ${
-            tagged
+            tags && tags.length > 0
               ? "border-[#146c44] bg-[#146c44] text-white"
               : "border-[#dcebe2] bg-[#eef7f1] text-[#146c44] hover:bg-[#e3f1e8]"
           }`}
         >
           <Icon name="star" size={15} />
-          {tagged ? "Tagged" : "Add Tag"}
+          {tags && tags.length > 0 ? "Tagged" : "Add Tag"}
         </button>
+        {tags && tags.length > 0 && !tagBoxOpen && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {tags.map((t) => (
+              <TagChip key={t.id} name={t.name} color={t.color} />
+            ))}
+          </div>
+        )}
+        {tagBoxOpen && (
+          <TagBox
+            logId={log.id}
+            onClose={() => setTagBoxOpen(false)}
+            onSaved={(next) => setTags(next)}
+          />
+        )}
         <div className="mt-5">
           <p className="text-[15px] font-medium text-black">Summary</p>
           <p className="mt-1.5 text-[14px] leading-relaxed text-[#808080]">
@@ -373,6 +391,7 @@ export default function LogsPanel({
   }, []);
   const [activity, setActivity] = useState<string>("all");
   const [field, setField] = useState<string>(initialField ?? "all");
+  const [tag, setTag] = useState<string>("all");
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
     useAnchoredMenus(openMenu, setOpenMenu);
@@ -426,6 +445,14 @@ export default function LogsPanel({
     () => Array.from(new Set(feedLogs.map((l) => l.field))).sort(),
     [feedLogs]
   );
+  // Tag names present on the feed's logs (drives the Tags filter select).
+  const tagOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(feedLogs.flatMap((l) => l.tags ?? []).map((t) => t.name))
+      ).sort(),
+    [feedLogs]
+  );
 
   const q = searchQuery.trim().toLowerCase();
 
@@ -452,6 +479,11 @@ export default function LogsPanel({
     .filter((log) => inDateRange(log.isoDate))
     .filter((log) => (activity === "all" ? true : log.activity === activity))
     .filter((log) => (field === "all" ? true : log.field === field))
+    .filter((log) =>
+      tag === "all"
+        ? true
+        : (log.tags ?? []).some((t) => t.name.toLowerCase() === tag.toLowerCase())
+    )
     .sort((a, b) => {
       switch (sortMode) {
         case "oldest":
@@ -493,7 +525,8 @@ export default function LogsPanel({
   const activeFilterCount =
     (dateRange === "all" ? 0 : 1) +
     (activity === "all" ? 0 : 1) +
-    (field === "all" ? 0 : 1);
+    (field === "all" ? 0 : 1) +
+    (tag === "all" ? 0 : 1);
   const dateLabel =
     DATE_OPTIONS.find((d) => d.value === dateRange)?.label ?? "Date";
   const sortLabel =
@@ -509,6 +542,7 @@ export default function LogsPanel({
     setDateRange("all");
     setActivity("all");
     updateField("all");
+    setTag("all");
     setOpenMenu(null);
   };
 
@@ -640,6 +674,18 @@ export default function LogsPanel({
               </Pill>
             </div>
           )}
+          {tag !== "all" && (
+            <div className="shrink-0">
+              <Pill
+                active
+                icon="x"
+                onClick={() => setTag("all")}
+                ariaLabel={`Clear tag filter ${tag}`}
+              >
+                {tag}
+              </Pill>
+            </div>
+          )}
 
           {/* Filter */}
           <div ref={filterAnchorRef} className="shrink-0">
@@ -692,6 +738,15 @@ export default function LogsPanel({
                     allLabel="All fields"
                     options={fields}
                   />
+                  {tagOptions.length > 0 && (
+                    <FilterSelect
+                      label="Tags"
+                      value={tag}
+                      onChange={setTag}
+                      allLabel="All tags"
+                      options={tagOptions}
+                    />
+                  )}
                   <button
                     onClick={clearAll}
                     className="w-full rounded-lg bg-black py-2 text-[13px] font-medium text-white hover:bg-[#222]"

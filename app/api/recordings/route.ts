@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { getRecordings } from "@/lib/server/queries";
+import { suggestTags } from "@/lib/server/suggest-tags";
 import { transcribeAudio, transcriptionConfigured } from "@/lib/server/transcribe";
+import { applySuggestedTags, type TagRow } from "@/lib/server/tags";
 import {
   VOICE_BUCKET,
   VOICE_LOG_SELECT,
@@ -20,16 +22,17 @@ type Sort = "newest" | "oldest";
  *   status    new | reviewed | flagged  (repeatable or comma-separated)
  *   activity  activity name (repeatable or comma-separated)
  *   field     field name (repeatable or comma-separated)
+ *   tag       tag name (repeatable or comma-separated; log matches ANY)
  *   search    free text matched against employee/activity/field/summary
  *   from/to   ISO dates (YYYY-MM-DD) bounding log_date
  *   sort      newest (default) | oldest
  *   limit     default 50, max 200
  *   offset    default 0
  *
- * Status/date/sort/limit run in SQL; activity/field/search filter in memory
- * (PostgREST can't filter on the joined display names without inner joins
- * that would drop rows with null FKs — fine at this scale, revisit with a
- * view/RPC when the table grows).
+ * Status/date/sort/limit run in SQL; activity/field/tag/search filter in
+ * memory (PostgREST can't filter on the joined display names without inner
+ * joins that would drop rows with null FKs — fine at this scale, revisit
+ * with a view/RPC when the table grows).
  */
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
@@ -40,6 +43,7 @@ export async function GET(req: Request) {
       statuses,
       activities: splitParam(q, "activity"),
       fields: splitParam(q, "field"),
+      tags: splitParam(q, "tag"),
       search: q.get("search") ?? "",
       from: q.get("from"),
       to: q.get("to"),
@@ -91,6 +95,11 @@ const EXT_BY_MIME: Record<string, string> = {
  * When a transcription provider is configured (GROQ_API_KEY or XAI_API_KEY),
  * the audio is transcribed inline and the transcript stored on the row;
  * failures leave transcript null ("pending") without failing the upload.
+ *
+ * With GROQ_API_KEY set, a second structured-output Groq pass then suggests
+ * tags (pesticides, fertilizers, conditions, other) from the transcript/note
+ * and auto-attaches them — returned as `tags` in the response for the
+ * "N smart tags applied" flash. Suggestion failures are skipped silently.
  */
 export async function POST(req: Request) {
   let form: FormData;
@@ -208,9 +217,25 @@ export async function POST(req: Request) {
       console.error("transcription failed:", e instanceof Error ? e.message : e);
     }
 
+    // Smart tags: one structured-output Groq pass over whatever text we have
+    // (transcript and/or the worker's note). Suggestions auto-attach to the
+    // fresh log; the Add Tag box lets anyone prune/extend later. Skipped on
+    // missing key or empty text; never fails the upload.
+    let tags: TagRow[] = [];
+    try {
+      tags = await applySuggestedTags(
+        supabase,
+        row.id,
+        await suggestTags({ transcript, note })
+      );
+    } catch (e) {
+      console.error("tag suggestion failed:", e instanceof Error ? e.message : e);
+    }
+
     return Response.json(
       {
         data: { ...toEmployeeLog(row), transcript: transcript ?? undefined },
+        tags,
         transcription,
         live: true,
       },

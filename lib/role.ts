@@ -71,9 +71,15 @@ export function optionForKind(kind: UserKind): CurrentUserOption {
  * the employee display name + "Employee" label while keeping the farm.
  */
 export function useCurrentUser(meta: { farm: string; role: string } | null) {
-  const [kind, setKind] = useState<UserKind>(() => getStoredKind());
+  // Start with the server default so the first client paint matches SSR.
+  // Reading localStorage in a lazy initializer would render the employee
+  // shell during hydration while the server rendered the admin one —
+  // "Hydration failed because the server rendered text didn't match".
+  const [kind, setKind] = useState<UserKind>("admin");
 
   useEffect(() => {
+    // Sync from storage only after mount (post-hydration update is safe).
+    setKind(getStoredKind());
     const onChange = (e: Event) => {
       const detail = (e as CustomEvent).detail as UserKind | undefined;
       setKind(detail ?? getStoredKind());

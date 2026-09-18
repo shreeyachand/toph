@@ -47,13 +47,19 @@ export default function EmployeeDashboard({
   const myRecordingCount =
     sessionCount + data.logs.filter((l) => l.employee === employeeName).length;
 
-  const { activities, fields } = useMemo(
-    () => ({
+  // Recorder dropdowns use the full catalogs from meta (every activity/field),
+  // not the new-logs feed — which only covers what's currently unreviewed.
+  // Fall back to feed-derived options if a caller passes empty catalogs.
+  const { activities, fields } = useMemo(() => {
+    const fromLogs = {
       activities: Array.from(new Set(data.logs.map((l) => l.activity))).sort(),
       fields: Array.from(new Set(data.logs.map((l) => l.field))).sort(),
-    }),
-    [data.logs]
-  );
+    };
+    return {
+      activities: data.activities.length > 0 ? data.activities : fromLogs.activities,
+      fields: data.fields.length > 0 ? data.fields : fromLogs.fields,
+    };
+  }, [data]);
 
   useEffect(() => {
     fetch("/api/schedule", { cache: "no-store" })

@@ -1,7 +1,7 @@
 import { mockLogs } from "@/lib/mock-data";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import {
-  VOICE_LOG_SELECT,
+  VOICE_LOG_SELECT_TAGS,
   toEmployeeLog,
   type VoiceLogRow,
 } from "@/lib/server/recordings";
@@ -23,26 +23,23 @@ export async function GET(
   try {
     const { data: row, error } = await supabase
       .from("voice_logs")
-      .select(VOICE_LOG_SELECT)
+      .select(VOICE_LOG_SELECT_TAGS)
       .eq("id", id)
       .single()
       .overrideTypes<VoiceLogRow>();
     if (error) throw error;
 
-    const [answersRes, tagsRes] = await Promise.all([
-      supabase
-        .from("log_answers")
-        .select("id, question_key, question_text, answer_text, is_confident")
-        .eq("log_id", id)
-        .order("created_at"),
-      supabase.from("log_tags").select("tags(id, name, color)").eq("log_id", id),
-    ]);
+    const answersRes = await supabase
+      .from("log_answers")
+      .select("id, question_key, question_text, answer_text, is_confident")
+      .eq("log_id", id)
+      .order("created_at");
     if (answersRes.error) throw answersRes.error;
-    if (tagsRes.error) throw tagsRes.error;
 
+    const log = toEmployeeLog(row);
     return Response.json({
       data: {
-        ...toEmployeeLog(row),
+        ...log,
         transcript: row.transcript,
         audioPath: row.audio_path ?? undefined,
         durationSec: row.duration_sec,
@@ -52,10 +49,8 @@ export async function GET(
             ? { lat: row.gps_lat, lng: row.gps_lng }
             : null,
         answers: answersRes.data ?? [],
-        // log_tags rows come back as { tags: {...} | {...}[] } — normalize.
-        tags: (tagsRes.data ?? []).flatMap((r: { tags: unknown }) =>
-          Array.isArray(r.tags) ? r.tags : r.tags ? [r.tags] : []
-        ),
+        // tags come embedded on the row (normalized in toEmployeeLog)
+        tags: log.tags ?? [],
       },
       live: true,
     });
@@ -100,7 +95,7 @@ export async function PATCH(
     .from("voice_logs")
     .update({ status })
     .eq("id", id)
-    .select(VOICE_LOG_SELECT)
+    .select(VOICE_LOG_SELECT_TAGS)
     .single()
     .overrideTypes<VoiceLogRow>();
   if (error) {

@@ -4,9 +4,11 @@ import type { DashboardStats, EmployeeLog } from "./types";
  * Frontend API client. Components talk to these Node endpoints — never to
  * Supabase directly:
  *
- *   GET   /api/recordings[?status&activity&field&search&from&to&sort&limit&offset]
+ *   GET   /api/recordings[?status&activity&field&tag&search&from&to&sort&limit&offset]
  *   GET   /api/recordings/:id        (expanded log detail: transcript, Q&A, tags)
  *   PATCH /api/recordings/:id       { status } — review actions
+ *   GET   /api/recordings/:id/tags   (Add Tag box state)
+ *   PUT   /api/recordings/:id/tags  { tags } — replace the log's tag set
  *   GET   /api/stats                (stat cards)
  *   GET   /api/meta                 (farm/role + activity/field/tag options)
  *   GET   /api/employees            (active crew list)
@@ -18,12 +20,17 @@ export interface DashboardData {
   farm: string;
   role: string;
   live: boolean;
+  /** Full activity/field catalogs (from meta) — recorder dropdowns. */
+  activities: string[];
+  fields: string[];
 }
 
 export interface RecordingsParams {
   status?: Array<"new" | "reviewed" | "flagged">;
   activity?: string[];
   field?: string[];
+  /** Tag names — a log matches if it has ANY of them. */
+  tag?: string[];
   search?: string;
   from?: string;
   to?: string;
@@ -53,6 +60,9 @@ export interface RecordingTag {
   name: string;
   color: string | null;
 }
+
+/** One entry for the replace-set call — an existing tag id, or a new name. */
+export type TagEntryInput = { tag_id: number } | { name: string; color?: string | null };
 
 export interface RecordingDetail extends EmployeeLog {
   transcript: string | null;
@@ -111,10 +121,13 @@ export interface UploadRecordingInput {
 
 /**
  * Submit a captured voice log: audio + metadata. Resolves to the created
- * EmployeeLog on success; throws with the server's error message otherwise
- * (e.g. storage not configured → caller keeps a local-only entry).
+ * EmployeeLog plus any smart tags the server auto-applied from the
+ * transcript/note (empty when none); throws with the server's error message
+ * otherwise (e.g. storage not configured → caller keeps a local-only entry).
  */
-export async function uploadRecording(input: UploadRecordingInput): Promise<EmployeeLog> {
+export async function uploadRecording(
+  input: UploadRecordingInput
+): Promise<{ log: EmployeeLog; tags: RecordingTag[] }> {
   const form = new FormData();
   form.set("audio", input.blob, `recording.${input.blob.type.includes("mp4") ? "m4a" : "webm"}`);
   form.set("employee", input.employee);
@@ -124,9 +137,36 @@ export async function uploadRecording(input: UploadRecordingInput): Promise<Empl
   form.set("note", input.note);
   form.set("startedAt", input.startedAt.toISOString());
   const res = await fetch("/api/recordings", { method: "POST", body: form });
-  const body = (await res.json()) as { data?: EmployeeLog; error?: string };
+  const body = (await res.json()) as {
+    data?: EmployeeLog;
+    tags?: RecordingTag[];
+    error?: string;
+  };
   if (!res.ok || !body.data) throw new Error(body.error ?? `upload failed: ${res.status}`);
-  return body.data;
+  return { log: body.data, tags: body.tags ?? [] };
+}
+
+/** Tags attached to a log (Add Tag box state). `live` false = local/mock mode. */
+export async function fetchLogTags(
+  id: string
+): Promise<{ data: RecordingTag[]; live: boolean }> {
+  const res = await fetch(`/api/recordings/${id}/tags`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`load tags failed: ${res.status}`);
+  return (await res.json()) as { data: RecordingTag[]; live: boolean };
+}
+
+/** Replace a log's full tag set in one call (Add Tag box Confirm). */
+export async function replaceRecordingTags(
+  id: string,
+  tags: TagEntryInput[]
+): Promise<{ data: RecordingTag[]; live: boolean }> {
+  const res = await fetch(`/api/recordings/${id}/tags`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tags }),
+  });
+  if (!res.ok) throw new Error(`save tags failed: ${res.status}`);
+  return (await res.json()) as { data: RecordingTag[]; live: boolean };
 }
 
 /** Signed playback URL for a stored audio object (null when unavailable). */
@@ -185,5 +225,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     farm: meta.farm,
     role: meta.role,
     live: recordings.live && stats.live && meta.live,
+    activities: meta.activities,
+    fields: meta.fields,
   };
 }

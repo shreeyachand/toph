@@ -2,7 +2,7 @@ import { mockLogs, mockStats, mockUser } from "@/lib/mock-data";
 import type { DashboardStats, EmployeeLog } from "@/lib/types";
 import { getSupabaseAdmin } from "./supabase";
 import {
-  VOICE_LOG_SELECT,
+  VOICE_LOG_SELECT_TAGS,
   toEmployeeLog,
   type VoiceLogRow,
 } from "./recordings";
@@ -45,6 +45,10 @@ export interface DashboardData {
   farm: string;
   role: string;
   live: boolean;
+  /** Full activity/field catalogs (from meta) — feeds the recorder dropdowns,
+   *  which must offer every option, not just what's in the new-logs feed. */
+  activities: string[];
+  fields: string[];
 }
 
 /** GET /api/meta core — farm/role + filter options for the shell. */
@@ -153,6 +157,8 @@ export interface RecordingsQuery {
   statuses?: Array<"new" | "reviewed" | "flagged">;
   activities?: string[];
   fields?: string[];
+  /** Tag names — a log matches if it has ANY of them (case-insensitive). */
+  tags?: string[];
   search?: string;
   from?: string | null;
   to?: string | null;
@@ -166,6 +172,7 @@ export async function getRecordings(query: RecordingsQuery = {}): Promise<Record
   const statuses = query.statuses ?? [];
   const activities = new Set((query.activities ?? []).map((s) => s.toLowerCase()));
   const fields = new Set((query.fields ?? []).map((s) => s.toLowerCase()));
+  const tags = new Set((query.tags ?? []).map((s) => s.toLowerCase()));
   const search = (query.search ?? "").trim().toLowerCase();
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const limit = Math.min(Math.max(query.limit || 50, 1), 200);
@@ -178,6 +185,7 @@ export async function getRecordings(query: RecordingsQuery = {}): Promise<Record
       )) &&
     (activities.size === 0 || activities.has(l.activity.toLowerCase())) &&
     (fields.size === 0 || fields.has(l.field.toLowerCase())) &&
+    (tags.size === 0 || (l.tags ?? []).some((t) => tags.has(t.name.toLowerCase()))) &&
     (!search ||
       [l.employee, l.activity, l.field, l.date, l.summary ?? "", l.transcript ?? ""]
         .join(" ")
@@ -190,10 +198,11 @@ export async function getRecordings(query: RecordingsQuery = {}): Promise<Record
   }
 
   try {
-    // Pull a bounded window in SQL, then apply name/search filters in memory.
+    // Pull a bounded window in SQL (with each log's tags embedded), then apply
+    // name/tag/search filters in memory.
     // NOTE: overrideTypes() must stay last — it drops the filter methods
     // from the builder's type.
-    let builder = supabase.from("voice_logs").select(VOICE_LOG_SELECT);
+    let builder = supabase.from("voice_logs").select(VOICE_LOG_SELECT_TAGS);
     if (statuses.length > 0) builder = builder.in("status", statuses);
     if (query.from) builder = builder.gte("log_date", query.from);
     if (query.to) builder = builder.lte("log_date", query.to);
@@ -248,5 +257,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     farm: meta.farm,
     role: meta.role,
     live: recordings.live && stats.live && meta.live,
+    activities: meta.activities,
+    fields: meta.fields,
   };
 }

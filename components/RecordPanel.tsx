@@ -262,7 +262,7 @@ export default function RecordPanel({
     }
     setUploading(true);
     try {
-      const saved = await uploadRecording({
+      const { log: saved, tags } = await uploadRecording({
         blob,
         employee: employeeName,
         activity,
@@ -272,7 +272,11 @@ export default function RecordPanel({
         startedAt: startedAtRef.current,
       });
       onSave(saved);
-      reset("Log saved — audio uploaded to the farm log.");
+      reset(
+        tags.length > 0
+          ? `Log saved — ${tags.length} smart tag${tags.length === 1 ? "" : "s"} applied.`
+          : "Log saved — audio uploaded to the farm log."
+      );
     } catch (e) {
       // Backend unreachable/unconfigured: don't lose the entry.
       onSave(buildLocalLog());

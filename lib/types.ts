@@ -1,5 +1,12 @@
 /** Shared domain types. Mirror these as Postgres tables when wiring Supabase. */
 
+/** Tag attached to a log (from the shared `tags` vocabulary). */
+export interface LogTag {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 export interface EmployeeLog {
   id: string;
   employee: string;
@@ -13,6 +20,8 @@ export interface EmployeeLog {
   isNew?: boolean;  /** DB-backed extras (present when loaded from Supabase). */
   status?: "new" | "reviewed" | "flagged";
   audioPath?: string;
+  /** Tags attached to this log (read paths; feeds the tag filter). */
+  tags?: LogTag[];
 }
 
 export interface DashboardStats {
