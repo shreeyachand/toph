@@ -19,6 +19,8 @@ export interface VoiceLogRow {
   summary: string | null;
   accuracy_score: number | null;
   status: "new" | "reviewed" | "flagged";
+  /** True when activity_type_id was set by the suggestion pass, not a human. */
+  activity_suggested: boolean | null;
   gps_lat: number | null;
   gps_lng: number | null;
   employees: { full_name: string } | null;
@@ -31,7 +33,7 @@ export interface VoiceLogRow {
 }
 
 export const VOICE_LOG_SELECT =
-  "id, employee_id, activity_type_id, field_id, log_date, started_at, ended_at, audio_path, duration_sec, transcript, summary, accuracy_score, status, gps_lat, gps_lng, employees(full_name), activity_types(name), fields(name)";
+  "id, employee_id, activity_type_id, field_id, log_date, started_at, ended_at, audio_path, duration_sec, transcript, summary, accuracy_score, status, activity_suggested, gps_lat, gps_lng, employees(full_name), activity_types(name), fields(name)";
 
 /**
  * Read shape (lists + detail): the row plus its attached tags, so feeds can
@@ -81,6 +83,7 @@ export function toEmployeeLog(r: VoiceLogRow): EmployeeLog {
     transcript: r.transcript ?? undefined,
     isNew: r.status === "new",
     status: r.status,
+    activitySuggested: r.activity_suggested ?? undefined,
     audioPath: r.audio_path ?? undefined,
     tags: tags.length > 0 ? tags : undefined,
   };

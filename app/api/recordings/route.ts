@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { getRecordings } from "@/lib/server/queries";
-import { suggestTags } from "@/lib/server/suggest-tags";
+import { suggestLogLabels } from "@/lib/server/suggest-tags";
 import { transcribeAudio, transcriptionConfigured } from "@/lib/server/transcribe";
 import { applySuggestedTags, type TagRow } from "@/lib/server/tags";
 import {
@@ -99,7 +99,12 @@ const EXT_BY_MIME: Record<string, string> = {
  * With GROQ_API_KEY set, a second structured-output Groq pass then suggests
  * tags (pesticides, fertilizers, conditions, other) from the transcript/note
  * and auto-attaches them — returned as `tags` in the response for the
- * "N smart tags applied" flash. Suggestion failures are skipped silently.
+ * "N smart tags applied" flash. The same call classifies the log's activity,
+ * strictly validated against the farm's activity_types catalog: when the
+ * worker left the activity on auto-detect (or their pick didn't resolve),
+ * the classified activity is applied and the row is flagged
+ * `activity_suggested` — returned as `suggestedActivity` so the UI can present
+ * it as a changeable guess. Suggestion failures are skipped silently.
  */
 export async function POST(req: Request) {
   let form: FormData;
@@ -160,11 +165,12 @@ export async function POST(req: Request) {
     }
     if (upErr) throw upErr;
 
+    // Fetch the whole activity catalog (small table) once: it resolves the
+    // submitted activity to an FK AND feeds the strict enum the suggestion
+    // pass must classify within.
     const [empRes, actRes, fldRes] = await Promise.all([
       supabase.from("employees").select("id").eq("full_name", employee).maybeSingle(),
-      activity
-        ? supabase.from("activity_types").select("id").ilike("name", activity).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
+      supabase.from("activity_types").select("id, name"),
       field
         ? supabase.from("fields").select("id").eq("name", field).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -173,12 +179,19 @@ export async function POST(req: Request) {
     if (actRes.error) throw actRes.error;
     if (fldRes.error) throw fldRes.error;
 
+    const activityRows = ((actRes.data ?? []) as Array<{ id: number; name: string }>).map(
+      (a) => ({ id: a.id, name: a.name.trim() })
+    );
+    const activityByName = new Map(activityRows.map((a) => [a.name.toLowerCase(), a]));
+    // Case-insensitive exact match (same behavior as the old ilike lookup).
+    const chosenActivity = activity ? activityByName.get(activity.toLowerCase()) ?? null : null;
+
     const end = new Date(start.getTime() + durationSec * 1000);
     const { data: row, error: insErr } = await supabase
       .from("voice_logs")
       .insert({
         employee_id: (empRes.data as { id: string } | null)?.id ?? null,
-        activity_type_id: (actRes.data as { id: number } | null)?.id ?? null,
+        activity_type_id: chosenActivity?.id ?? null,
         field_id: (fldRes.data as { id: string } | null)?.id ?? null,
         log_date: day,
         started_at: start.toISOString(),
@@ -203,7 +216,7 @@ export async function POST(req: Request) {
       : "skipped";
     try {
       transcript = await transcribeAudio(audio, {
-        keyterms: [activity, field, "Bays Ranch"],
+        keyterms: [activity, field, "Bays Ranch"].filter(Boolean),
       });
       if (transcript) {
         const { error: txErr } = await supabase
@@ -217,25 +230,62 @@ export async function POST(req: Request) {
       console.error("transcription failed:", e instanceof Error ? e.message : e);
     }
 
-    // Smart tags: one structured-output Groq pass over whatever text we have
-    // (transcript and/or the worker's note). Suggestions auto-attach to the
-    // fresh log; the Add Tag box lets anyone prune/extend later. Skipped on
-    // missing key or empty text; never fails the upload.
+    // Smart labels: one structured-output Groq pass over whatever text we
+    // have (transcript and/or the worker's note). Tags auto-attach to the
+    // fresh log; the Add Tag box lets anyone prune/extend later. The
+    // activity classification is strictly validated against the catalog —
+    // when no human activity was saved (auto-detect, or a pick that didn't
+    // resolve), it's applied and flagged `activity_suggested` so the UI can
+    // show it as a changeable guess. Skipped on missing key or empty text;
+    // never fails the upload.
     let tags: TagRow[] = [];
+    let suggestedActivity: string | null = null;
+    let display: VoiceLogRow = row;
+    let labels: Awaited<ReturnType<typeof suggestLogLabels>> | null = null;
     try {
-      tags = await applySuggestedTags(
-        supabase,
-        row.id,
-        await suggestTags({ transcript, note })
-      );
+      labels = await suggestLogLabels({
+        transcript,
+        note,
+        activities: activityRows.map((a) => a.name),
+      });
     } catch (e) {
-      console.error("tag suggestion failed:", e instanceof Error ? e.message : e);
+      console.error("label suggestion failed:", e instanceof Error ? e.message : e);
+    }
+    // Tags and activity apply separately — one failing must not bury the other.
+    if (labels && labels.tags.length > 0) {
+      try {
+        tags = await applySuggestedTags(supabase, row.id, labels.tags);
+      } catch (e) {
+        console.error("tag suggestion failed:", e instanceof Error ? e.message : e);
+      }
+    }
+    if (labels && labels.activity) {
+      try {
+        const match = activityByName.get(labels.activity.toLowerCase());
+        // Only fill when no human pick is stored — an explicit choice is
+        // never second-guessed by the model.
+        if (match && display.activity_type_id == null) {
+          const { data: updated, error: actErr } = await supabase
+            .from("voice_logs")
+            .update({ activity_type_id: match.id, activity_suggested: true })
+            .eq("id", row.id)
+            .select(VOICE_LOG_SELECT)
+            .single()
+            .overrideTypes<VoiceLogRow>();
+          if (actErr) throw actErr;
+          display = updated;
+          suggestedActivity = match.name;
+        }
+      } catch (e) {
+        console.error("activity suggestion failed:", e instanceof Error ? e.message : e);
+      }
     }
 
     return Response.json(
       {
-        data: { ...toEmployeeLog(row), transcript: transcript ?? undefined },
+        data: { ...toEmployeeLog(display), transcript: transcript ?? undefined },
         tags,
+        suggestedActivity,
         transcription,
         live: true,
       },

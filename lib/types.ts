@@ -19,6 +19,8 @@ export interface EmployeeLog {
   transcript?: string | null;
   isNew?: boolean;  /** DB-backed extras (present when loaded from Supabase). */
   status?: "new" | "reviewed" | "flagged";
+  /** True when the activity was auto-classified from the audio (a changeable guess). */
+  activitySuggested?: boolean;
   audioPath?: string;
   /** Tags attached to this log (read paths; feeds the tag filter). */
   tags?: LogTag[];

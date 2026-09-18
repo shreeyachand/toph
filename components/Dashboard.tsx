@@ -17,10 +17,13 @@ export default function Dashboard({
   onNavigate?: (tab: TabKey) => void;
 }) {
   const [query, setQuery] = useState("");
+  // Uncapped total for the sidebar badge; fall back to the feed length when
+  // an older caller didn't set newCount.
+  const newCount = data.newCount ?? data.logs.length;
 
   return (
     <div className="flex min-h-screen gap-4 bg-white p-3 md:p-4">
-      <Sidebar farm={data.farm} role={data.role} active={active} onNavigate={onNavigate} />
+      <Sidebar farm={data.farm} role={data.role} active={active} onNavigate={onNavigate} newCount={newCount} />
 
       <main className="min-w-0 flex-1">
         {/* Header — sticky on mobile */}
@@ -31,6 +34,7 @@ export default function Dashboard({
               role={data.role}
               active={active}
               onNavigate={onNavigate}
+              newCount={newCount}
               className="mt-[1px]"
             />
             <div className="min-w-0">
@@ -64,7 +68,7 @@ export default function Dashboard({
             icon="calendar"
             label="Todays Recordings"
             value={data.stats.todaysRecordings}
-            suffix={`${data.stats.todaysNew} New`}
+            suffix={`${newCount} New`}
           />
           <StatCard
             icon="clipboard-pen"

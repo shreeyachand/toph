@@ -47,7 +47,8 @@ export default function RecordPanel({
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
-  const [activity, setActivity] = useState(activities[0] ?? "Harvesting");
+  // "" = auto-detect — let the save-time pass classify from the audio.
+  const [activity, setActivity] = useState("");
   const [field, setField] = useState(fields[0] ?? "FIELD B");
   const [note, setNote] = useState("");
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export default function RecordPanel({
   const [liveLevels, setLiveLevels] = useState<number[]>([]);
 
   useEffect(() => {
-    setActivity(activities[0] ?? "Harvesting");
+    setActivity("");
     setField(fields[0] ?? "FIELD B");
   }, [activities, fields]);
 
@@ -239,14 +240,16 @@ export default function RecordPanel({
     return {
       id: `local-${Date.now()}`,
       employee: employeeName,
-      activity,
+      activity: activity || "—",
       date: now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
       isoDate: now.toISOString().slice(0, 10),
       field,
       time: `${fmtElapsed(elapsed)} recording`,
       summary: note.trim()
         ? note.trim()
-        : `Voice log — ${activity.toLowerCase()} in ${field}.`,
+        : activity
+          ? `Voice log — ${activity.toLowerCase()} in ${field}.`
+          : `Voice log in ${field} — activity left for review.`,
       isNew: true,
       status: "new",
     };
@@ -262,7 +265,7 @@ export default function RecordPanel({
     }
     setUploading(true);
     try {
-      const { log: saved, tags } = await uploadRecording({
+      const { log: saved, tags, suggestedActivity } = await uploadRecording({
         blob,
         employee: employeeName,
         activity,
@@ -272,9 +275,13 @@ export default function RecordPanel({
         startedAt: startedAtRef.current,
       });
       onSave(saved);
+      const bits: string[] = [];
+      if (tags.length > 0) bits.push(`${tags.length} smart tag${tags.length === 1 ? "" : "s"}`);
+      if (suggestedActivity)
+        bits.push(`sounds like ${suggestedActivity.toLowerCase()} — easy to change`);
       reset(
-        tags.length > 0
-          ? `Log saved — ${tags.length} smart tag${tags.length === 1 ? "" : "s"} applied.`
+        bits.length > 0
+          ? `Log saved — ${bits.join(" · ")}.`
           : "Log saved — audio uploaded to the farm log."
       );
     } catch (e) {
@@ -411,6 +418,7 @@ export default function RecordPanel({
                 onChange={(e) => setActivity(e.target.value)}
                 className="w-full rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-2 text-[13px] outline-none focus:border-[#b3b3b3]"
               >
+                <option value="">Auto-detect from audio</option>
                 {activities.map((a) => (
                   <option key={a} value={a}>
                     {a}

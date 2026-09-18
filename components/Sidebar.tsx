@@ -36,6 +36,8 @@ export interface ShellNav {
   role: string;
   active: TabKey;
   onNavigate?: (tab: TabKey) => void;
+  /** # new recordings — admin only; omit/undefined hides the badge. */
+  newCount?: number;
 }
 
 export const ShellContext = createContext<ShellNav | null>(null);
@@ -59,7 +61,7 @@ const SECTIONS: NavSection[] = [
   {
     title: "Overview",
     items: [
-      { icon: "chart-line", label: "Dashboard", tab: "dashboard", badge: "1" },
+      { icon: "chart-line", label: "Dashboard", tab: "dashboard" },
       { icon: "audio-lines", label: "Activity Logs", tab: "activity" },
       { icon: "map", label: "Map", tab: "map" },
     ],
@@ -91,9 +93,40 @@ const SECTIONS: NavSection[] = [
 
 const isEmployeeRole = (role: string) => role.toLowerCase() === "employee";
 
+/**
+ * Dashboard badge = # new recordings for admins; employees never see one.
+ * When `explicit` is provided (dashboard pages) use it directly; otherwise
+ * (all other tabs) fetch the live count — admin only.
+ */
+function useNewCount(role: string, explicit?: number): number | undefined {
+  const [fetched, setFetched] = useState<number | undefined>(undefined);
+  const needsFetch = explicit === undefined && !isEmployeeRole(role);
+  useEffect(() => {
+    if (!needsFetch) return;
+    let cancelled = false;
+    fetch("/api/recordings?status=new&limit=1", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j && typeof j.total === "number") setFetched(j.total);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [needsFetch]);
+  if (isEmployeeRole(role)) return undefined;
+  const count = explicit ?? fetched;
+  return count && count > 0 ? count : undefined;
+}
+
 /** Employees see a limited set of tabs, regrouped flatter. */
-export function sectionsForRole(role: string): NavSection[] {
-  if (!isEmployeeRole(role)) return SECTIONS;
+export function sectionsForRole(role: string, newCount?: number): NavSection[] {
+  const dashboardBadge =
+    !isEmployeeRole(role) && newCount && newCount > 0 ? String(newCount) : undefined;
+  const withBadge = (item: NavItem): NavItem =>
+    item.tab === "dashboard" && dashboardBadge ? { ...item, badge: dashboardBadge } : item;
+  if (!isEmployeeRole(role))
+    return SECTIONS.map((s) => ({ ...s, items: s.items.map(withBadge) }));
   const byTab = new Map<TabKey, NavItem>();
   for (const section of SECTIONS)
     for (const item of section.items) byTab.set(item.tab, item);
@@ -196,11 +229,13 @@ export default function Sidebar({
   role,
   active,
   onNavigate,
+  newCount,
 }: {
   farm: string;
   role: string;
   active: TabKey;
   onNavigate?: (tab: TabKey) => void;
+  newCount?: number;
 }) {
   return (
     <aside className="hidden w-[270px] shrink-0 flex-col rounded-2xl border border-[#ececec] bg-white p-4 lg:sticky lg:top-4 lg:flex lg:h-[calc(100vh-2rem)]">
@@ -209,6 +244,7 @@ export default function Sidebar({
         role={role}
         active={active}
         onNavigate={onNavigate}
+        newCount={newCount}
       />
     </aside>
   );
@@ -220,12 +256,14 @@ export function MobileNav({
   role,
   active,
   onNavigate,
+  newCount,
   className = "",
 }: {
   farm: string;
   role: string;
   active: TabKey;
   onNavigate?: (tab: TabKey) => void;
+  newCount?: number;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -301,6 +339,7 @@ export function MobileNav({
                 role={role}
                 active={active}
                 hideHeader
+                newCount={newCount}
                 onNavigate={(tab) => {
                   onNavigate?.(tab);
                   setOpen(false);
@@ -319,15 +358,18 @@ function SidebarBody({
   role,
   active,
   onNavigate,
+  newCount: explicitCount,
   hideHeader = false,
 }: {
   farm: string;
   role: string;
   active: TabKey;
   onNavigate?: (tab: TabKey) => void;
+  newCount?: number;
   hideHeader?: boolean;
 }) {
-  const sections = sectionsForRole(role);
+  const newCount = useNewCount(role, explicitCount);
+  const sections = sectionsForRole(role, newCount);
   return (
     <>
       {/* User header */}

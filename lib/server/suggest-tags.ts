@@ -14,11 +14,20 @@
  * is stored on the `tags.color` column when the tag row is created (no schema
  * change). Tag names themselves are entirely model-chosen strings.
  *
+ * The same call also classifies the log's activity: the farm's activity
+ * catalog (`activity_types` names) is passed in and becomes a strict enum in
+ * the output schema, so the model can only answer with an activity the farm
+ * actually tracks. The returned value is re-validated against the catalog
+ * server-side too (the json_object fallback path can return anything), and
+ * `activity` is null when the catalog is empty or the log doesn't make the
+ * activity clear. The caller applies it as a changeable suggestion.
+ *
  *   TAG_SUGGESTION_MODEL=model (default openai/gpt-oss-120b; must support
  *   structured outputs — e.g. llama-3.3-70b-versatile also works)
  *   GROQ_API_KEY=...  (shared with the Whisper transcription pass)
  *
- * Missing key / empty text / call failure → [] — never fails the upload.
+ * Missing key / empty text / call failure → no tags, null activity — never
+ * fails the upload.
  */
 
 export type TagCategory = "pesticide" | "fertilizer" | "condition" | "crop" | "other";
@@ -26,6 +35,13 @@ export type TagCategory = "pesticide" | "fertilizer" | "condition" | "crop" | "o
 export interface SuggestedTag {
   name: string;
   category: TagCategory;
+}
+
+/** Everything the save-time pass suggests for one log. */
+export interface LogLabels {
+  tags: SuggestedTag[];
+  /** Validated against the farm's activity catalog; null = no clear match. */
+  activity: string | null;
 }
 
 /** Chip color per category — hex so `${color}14`-style alpha suffixes work. */
@@ -55,25 +71,44 @@ const SYSTEM_PROMPT = `You tag farm voice logs for an agriculture dashboard. Rea
 - "other": other notable supplies, equipment or tasks worth tracking (e.g. "drip line", "irrigation pump"), including application methods the worker mentions as tasks: "Side Dressing", "Top Dressing", "Banding", "Broadcasting", "Fertigation", "Foliar Feeding", "Split Application", "Starter Fertilizer", "Pre-Plant".
 Rules: only items explicitly mentioned in the log; short noun phrases of 1-3 words in Title Case; at most ${MAX_PER_CATEGORY} per category; never include people's names, field names, dates or bare quantities; use an empty array when nothing fits a category.`;
 
-const JSON_SHAPE = `{"pesticide": string[], "fertilizer": string[], "condition": string[], "crop": string[], "other": string[]}`;
+const ACTIVITY_PROMPT = (activities: string[]) =>
+  `Also set "activity" to the single farm activity that best matches the main work described in the log, choosing from exactly these options: ${activities.join(", ")}. Use null only when no option clearly fits.`;
+
+const JSON_SHAPE = `{"pesticide": string[], "fertilizer": string[], "condition": string[], "crop": string[], "other": string[], "activity": string | null}`;
 
 interface ChatMessage {
   role: "system" | "user";
   content: string;
 }
 
-export async function suggestTags(input: {
+/** Deduped, trimmed activity catalog (keeps each name's canonical casing). */
+function uniqueActivities(raw: string[]): string[] {
+  const byLower = new Map<string, string>();
+  for (const a of raw) {
+    const name = a.trim();
+    if (name) byLower.set(name.toLowerCase(), name);
+  }
+  return [...byLower.values()];
+}
+
+export async function suggestLogLabels(input: {
   transcript?: string | null;
   note?: string | null;
-}): Promise<SuggestedTag[]> {
+  /** The farm's activity catalog — the only values `activity` may take. */
+  activities?: string[];
+}): Promise<LogLabels> {
   const key = process.env.GROQ_API_KEY;
   const transcript = input.transcript?.trim() ?? "";
   const note = input.note?.trim() ?? "";
   const text = [transcript, note].filter(Boolean).join("\n\n");
-  if (!key || !text) return [];
+  const activities = uniqueActivities(input.activities ?? []);
+  if (!key || !text) return { tags: [], activity: null };
 
+  const system = activities.length
+    ? `${SYSTEM_PROMPT}\n${ACTIVITY_PROMPT(activities)}`
+    : SYSTEM_PROMPT;
   const messages: ChatMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: system },
     {
       role: "user",
       content: [
@@ -85,9 +120,10 @@ export async function suggestTags(input: {
     },
   ];
 
-  let raw: Record<string, unknown> | null = await callGroq(key, messages, true);
-  if (!raw) raw = await callGroq(key, messages, false);
-  return raw ? normalizeSuggested(raw) : [];
+  let raw: Record<string, unknown> | null = await callGroq(key, messages, activities, true);
+  if (!raw) raw = await callGroq(key, messages, activities, false);
+  if (!raw) return { tags: [], activity: null };
+  return { tags: normalizeSuggested(raw), activity: normalizeActivity(raw.activity, activities) };
 }
 
 /**
@@ -99,9 +135,13 @@ export async function suggestTags(input: {
 async function callGroq(
   key: string,
   messages: ChatMessage[],
+  activities: string[],
   structured: boolean
 ): Promise<Record<string, unknown> | null> {
   const model = process.env.TAG_SUGGESTION_MODEL ?? "openai/gpt-oss-120b";
+  const shape = activities.length
+    ? JSON_SHAPE.replace(" | null}", `: ${activities.map((a) => JSON.stringify(a)).join(" | ")} | null}`)
+    : JSON_SHAPE.replace(', "activity": string | null', "");
   const body: Record<string, unknown> = {
     model,
     temperature: 0.2,
@@ -109,21 +149,28 @@ async function callGroq(
     messages: structured
       ? messages
       : [
-          { ...messages[0], content: `${messages[0].content}\nRespond with only minified JSON of shape ${JSON_SHAPE}.` },
+          { ...messages[0], content: `${messages[0].content}\nRespond with only minified JSON of shape ${shape}.` },
           ...messages.slice(1),
         ],
     response_format: structured
       ? {
           type: "json_schema",
           json_schema: {
-            name: "farm_log_tags",
+            name: "farm_log_labels",
             strict: true,
             schema: {
               type: "object",
-              properties: Object.fromEntries(
-                CATEGORIES.map((c) => [c, { type: "array", items: { type: "string" } }])
-              ),
-              required: CATEGORIES,
+              properties: {
+                ...Object.fromEntries(
+                  CATEGORIES.map((c) => [c, { type: "array", items: { type: "string" } }])
+                ),
+                // Strict enum over the farm's catalog — the model can only
+                // answer with an activity the farm tracks (or null).
+                ...(activities.length
+                  ? { activity: { type: ["string", "null"], enum: [...activities, null] } }
+                  : {}),
+              },
+              required: [...CATEGORIES, ...(activities.length ? ["activity"] : [])],
               additionalProperties: false,
             },
           },
@@ -196,4 +243,16 @@ function normalizeSuggested(raw: Record<string, unknown>): SuggestedTag[] {
     }
   }
   return out.slice(0, MAX_TOTAL);
+}
+
+/**
+ * Strict post-validation: whatever the model said (or the fallback path
+ * mangled) only survives as a canonical catalog name, case-insensitively.
+ * Anything off-catalog → null.
+ */
+function normalizeActivity(raw: unknown, activities: string[]): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.trim();
+  if (!name || name.toLowerCase() === "null") return null;
+  return activities.find((a) => a.toLowerCase() === name.toLowerCase()) ?? null;
 }

@@ -60,40 +60,93 @@ export async function GET(
 }
 
 /**
- * PATCH /api/recordings/:id — review actions from the log detail view.
- * Body: { "status": "new" | "reviewed" | "flagged" }
+ * PATCH /api/recordings/:id — review actions and corrections from the log
+ * detail view. Body (either or both):
+ *   { "status": "new" | "reviewed" | "flagged" }
+ *   { "activity": "Spraying" }  — must match an activity_types name
+ *   (case-insensitive); "" clears it. A human change always clears the
+ *   `activity_suggested` flag.
  */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  let status: unknown;
+  let body: { status?: unknown; activity?: unknown };
   try {
-    ({ status } = (await req.json()) as { status: unknown });
+    body = (await req.json()) as { status?: unknown; activity?: unknown };
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  if (status !== "new" && status !== "reviewed" && status !== "flagged") {
+
+  const hasStatus = body.status !== undefined;
+  const hasActivity = body.activity !== undefined;
+  if (!hasStatus && !hasActivity) {
+    return Response.json(
+      { error: 'body must include "status" or "activity"' },
+      { status: 400 }
+    );
+  }
+
+  if (hasStatus && body.status !== "new" && body.status !== "reviewed" && body.status !== "flagged") {
     return Response.json(
       { error: 'status must be "new", "reviewed" or "flagged"' },
       { status: 400 }
     );
   }
+  if (hasActivity && typeof body.activity !== "string") {
+    return Response.json({ error: "activity must be a string" }, { status: 400 });
+  }
+  const status = hasStatus
+    ? (body.status as "new" | "reviewed" | "flagged")
+    : undefined;
+  const activity = hasActivity ? (body.activity as string).trim() : undefined;
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     const log = mockLogs.find((l) => l.id === id);
     if (!log) return Response.json({ error: "Not found" }, { status: 404 });
     return Response.json({
-      data: { ...log, status, isNew: status === "new" },
+      data: {
+        ...log,
+        ...(status ? { status, isNew: status === "new" } : {}),
+        ...(activity !== undefined ? { activity: activity || "—", activitySuggested: false } : {}),
+      },
       live: false,
     });
   }
 
+  // Resolve the activity name against the farm's catalog before writing.
+  let activityTypeId: number | null | undefined;
+  if (activity !== undefined && activity !== "") {
+    const { data: acts, error: actsErr } = await supabase
+      .from("activity_types")
+      .select("id, name");
+    if (actsErr) {
+      return Response.json({ error: "Update failed" }, { status: 500 });
+    }
+    const match = ((acts ?? []) as Array<{ id: number; name: string }>).find(
+      (a) => a.name.trim().toLowerCase() === activity.toLowerCase()
+    );
+    if (!match) {
+      return Response.json(
+        { error: `Unknown activity "${activity}"` },
+        { status: 400 }
+      );
+    }
+    activityTypeId = match.id;
+  }
+
+  const update: Record<string, unknown> = {};
+  if (status !== undefined) update.status = status;
+  if (activity !== undefined) {
+    update.activity_type_id = activityTypeId ?? null;
+    update.activity_suggested = false; // a human decided — no longer a guess
+  }
+
   const { data, error } = await supabase
     .from("voice_logs")
-    .update({ status })
+    .update(update)
     .eq("id", id)
     .select(VOICE_LOG_SELECT_TAGS)
     .single()

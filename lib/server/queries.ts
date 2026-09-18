@@ -49,6 +49,8 @@ export interface DashboardData {
    *  which must offer every option, not just what's in the new-logs feed. */
   activities: string[];
   fields: string[];
+  /** Total # new recordings (uncapped) — the admin sidebar Dashboard badge. */
+  newCount: number;
 }
 
 /** GET /api/meta core — farm/role + filter options for the shell. */
@@ -259,5 +261,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     live: recordings.live && stats.live && meta.live,
     activities: meta.activities,
     fields: meta.fields,
+    newCount: recordings.total,
   };
 }

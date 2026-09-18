@@ -7,6 +7,7 @@ import type { DashboardStats, EmployeeLog } from "./types";
  *   GET   /api/recordings[?status&activity&field&tag&search&from&to&sort&limit&offset]
  *   GET   /api/recordings/:id        (expanded log detail: transcript, Q&A, tags)
  *   PATCH /api/recordings/:id       { status } — review actions
+ *                                 or { activity } — correct the activity
  *   GET   /api/recordings/:id/tags   (Add Tag box state)
  *   PUT   /api/recordings/:id/tags  { tags } — replace the log's tag set
  *   GET   /api/stats                (stat cards)
@@ -23,6 +24,8 @@ export interface DashboardData {
   /** Full activity/field catalogs (from meta) — recorder dropdowns. */
   activities: string[];
   fields: string[];
+  /** Total # new recordings (uncapped) — the admin sidebar Dashboard badge. */
+  newCount?: number;
 }
 
 export interface RecordingsParams {
@@ -121,13 +124,15 @@ export interface UploadRecordingInput {
 
 /**
  * Submit a captured voice log: audio + metadata. Resolves to the created
- * EmployeeLog plus any smart tags the server auto-applied from the
- * transcript/note (empty when none); throws with the server's error message
- * otherwise (e.g. storage not configured → caller keeps a local-only entry).
+ * EmployeeLog, any smart tags the server auto-applied from the
+ * transcript/note (empty when none), and the activity the server
+ * auto-classified when the worker left it on auto-detect (null otherwise);
+ * throws with the server's error message otherwise (e.g. storage not
+ * configured → caller keeps a local-only entry).
  */
 export async function uploadRecording(
   input: UploadRecordingInput
-): Promise<{ log: EmployeeLog; tags: RecordingTag[] }> {
+): Promise<{ log: EmployeeLog; tags: RecordingTag[]; suggestedActivity: string | null }> {
   const form = new FormData();
   form.set("audio", input.blob, `recording.${input.blob.type.includes("mp4") ? "m4a" : "webm"}`);
   form.set("employee", input.employee);
@@ -140,10 +145,15 @@ export async function uploadRecording(
   const body = (await res.json()) as {
     data?: EmployeeLog;
     tags?: RecordingTag[];
+    suggestedActivity?: string | null;
     error?: string;
   };
   if (!res.ok || !body.data) throw new Error(body.error ?? `upload failed: ${res.status}`);
-  return { log: body.data, tags: body.tags ?? [] };
+  return {
+    log: body.data,
+    tags: body.tags ?? [],
+    suggestedActivity: body.suggestedActivity ?? null,
+  };
 }
 
 /** Tags attached to a log (Add Tag box state). `live` false = local/mock mode. */
@@ -195,6 +205,24 @@ export async function updateRecordingStatus(
   return ((await res.json()) as { data: EmployeeLog }).data;
 }
 
+/**
+ * Change a log's activity from the detail view. `activity` must match a
+ * farm activity name ("" clears it); resolving also drops the
+ * auto-classified "suggested" mark.
+ */
+export async function updateRecordingActivity(
+  id: string,
+  activity: string
+): Promise<EmployeeLog> {
+  const res = await fetch(`/api/recordings/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ activity }),
+  });
+  if (!res.ok) throw new Error(`update activity failed: ${res.status}`);
+  return ((await res.json()) as { data: EmployeeLog }).data;
+}
+
 export function fetchStats(): Promise<StatsResponse> {
   return get<StatsResponse>("/api/stats");
 }
@@ -227,5 +255,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     live: recordings.live && stats.live && meta.live,
     activities: meta.activities,
     fields: meta.fields,
+    newCount: recordings.total,
   };
 }

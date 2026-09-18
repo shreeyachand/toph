@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { fetchAudioUrl, updateRecordingStatus } from "@/lib/data";
+import { fetchAudioUrl, updateRecordingActivity, updateRecordingStatus } from "@/lib/data";
 import type { EmployeeLog } from "@/lib/types";
 import type { MapField } from "./FieldMap";
 import Icon from "./Icon";
-import TagBox, { TagChip, type TagItem } from "./TagBox";
+import TagBox, { TagChip, chipStyle, type TagItem } from "./TagBox";
 import Waveform from "./Waveform";
 import {
   ColumnHeaders,
@@ -59,6 +59,18 @@ const DATE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "week", label: "Past 7 days" },
   { value: "month", label: "This month" },
 ];
+
+/** Max active-filter pills shown inline; the rest collapse into a "+N" pill. */
+const MAX_FILTER_PILLS = 3;
+
+type FilterPill = {
+  key: string;
+  kind: "date" | "activity" | "field" | "tag";
+  label: string;
+  /** Colored dot for tag filters; null renders no dot. */
+  dot: string | null;
+  clear: () => void;
+};
 
 function ExpandedMapModal({
   log,
@@ -136,7 +148,141 @@ function ExpandedMapModal({
   );
 }
 
-function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | null }) {
+/**
+ * The log's activity with its "suggested" mark and a draft-then-confirm
+ * changer. When the save-time pass classified the activity from the audio,
+ * the row carries `activitySuggested` — shown as a small sparkle chip so it
+ * reads as a guess, not gospel. Change writes through via PATCH (local-only
+ * logs just update the panel state), and a human pick always drops the mark.
+ */
+function ActivityLine({
+  log,
+  activities,
+  onChanged,
+}: {
+  log: EmployeeLog;
+  /** Full activity catalog from /api/meta — every farm option, not just the feed's. */
+  activities: string[];
+  onChanged: (activity: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isLocal = log.id.startsWith("local-");
+  const current = log.activity === "—" ? "" : log.activity;
+  const options = useMemo(() => {
+    const set = new Set(activities);
+    if (current) set.add(current);
+    return Array.from(set).sort();
+  }, [activities, current]);
+
+  const startEdit = () => {
+    setDraft(current);
+    setError(null);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (saving) return;
+    const next = draft.trim();
+    if (next === current) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      if (!isLocal) {
+        const updated = await updateRecordingActivity(log.id, next);
+        onChanged(updated.activity);
+      } else {
+        onChanged(next);
+      }
+      setEditing(false);
+    } catch {
+      setError("Couldn't save — check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <select
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          aria-label="Activity"
+          className="min-w-0 flex-1 rounded-lg border border-[#e3e3e3] bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-[#b3b3b3] sm:flex-none"
+        >
+          <option value="">None</option>
+          {options.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="rounded-lg bg-black px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#222] disabled:opacity-40"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+          className="rounded-lg border border-[#e3e3e3] bg-white px-3 py-1.5 text-[12px] font-medium text-black hover:bg-[#f8f8f8] disabled:opacity-40"
+        >
+          Cancel
+        </button>
+        {error && (
+          <p className="w-full text-[12px] text-[#b3261e]" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+      <span className="text-[14px] text-[#4d4d4d]">{log.activity}</span>
+      {log.activitySuggested && (
+        <span
+          title="Picked from your recording — change it if we guessed wrong."
+          className="inline-flex items-center gap-1 rounded-full border border-[#dcebe2] bg-[#eef7f1] px-2 py-0.5 text-[11px] font-medium text-[#146c44]"
+        >
+          <Icon name="sparkle" size={10} alt="" />
+          our guess
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={startEdit}
+        className="text-[12px] font-medium text-[#146c44] hover:underline"
+      >
+        Change
+      </button>
+    </div>
+  );
+}
+
+function LogDetail({
+  log,
+  mapField,
+  activities,
+  onActivityChange,
+}: {
+  log: EmployeeLog;
+  mapField?: MapField | null;
+  activities: string[];
+  onActivityChange: (id: string, activity: string) => void;
+}) {
   const [playing, setPlaying] = useState(false);
   // Tags on this log (null = not loaded yet — fetched by the TagBox on open).
   const [tags, setTags] = useState<TagItem[] | null>(null);
@@ -295,6 +441,14 @@ function LogDetail({ log, mapField }: { log: EmployeeLog; mapField?: MapField | 
           />
         )}
         <div className="mt-5">
+          <p className="text-[15px] font-medium text-black">Activity</p>
+          <ActivityLine
+            log={log}
+            activities={activities}
+            onChanged={(a) => onActivityChange(log.id, a)}
+          />
+        </div>
+        <div className="mt-5">
           <p className="text-[15px] font-medium text-black">Summary</p>
           <p className="mt-1.5 text-[14px] leading-relaxed text-[#808080]">
             &quot;
@@ -372,13 +526,18 @@ export default function LogsPanel({
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, "reviewed" | "flagged">
   >({});
+  // Activity edits from the detail view (id → chosen name) — applied like
+  // status overrides so a change reflects in the row immediately.
+  const [activityOverrides, setActivityOverrides] = useState<Record<string, string>>({});
   const [pendingAction, setPendingAction] = useState<"reviewed" | "flagged" | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  // Field polygons for the per-log mini-map (matched by field name).
+  // Field polygons for the per-log mini-map (matched by field name), plus the
+  // full activity catalog (feeds the detail view's activity changer).
   const [fieldIndex, setFieldIndex] = useState<Record<string, MapField>>({});
+  const [activityOptions, setActivityOptions] = useState<string[]>([]);
   useEffect(() => {
     fetch("/api/fields", { cache: "no-store" })
       .then((r) => r.json())
@@ -388,23 +547,34 @@ export default function LogsPanel({
         setFieldIndex(idx);
       })
       .catch(() => {});
+    fetch("/api/meta", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setActivityOptions(j.activities ?? []))
+      .catch(() => {});
   }, []);
   const [activity, setActivity] = useState<string>("all");
   const [field, setField] = useState<string>(initialField ?? "all");
-  const [tag, setTag] = useState<string>("all");
+  // Selected tag names (multi-select; a log matches if it has ANY of them).
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const { sortAnchorRef, filterAnchorRef, menuPos, toggleMenuAnchored } =
     useAnchoredMenus(openMenu, setOpenMenu);
+  // Anchor for the "+N more filters" pill's copy of the filter menu.
+  const moreRef = useRef<HTMLDivElement>(null);
 
-  // Local status changes apply instantly (mock + live) and — in "new"
-  // mode — drop the row so it no longer shows up as new.
+  // Local status/activity changes apply instantly (mock + live) and — in "new"
+  // mode — status changes drop the row so it no longer shows up as new.
   const effectiveLogs = useMemo(
     () =>
       logs.map((l) => {
+        const activityOverride = activityOverrides[l.id];
+        const withActivity = activityOverride
+          ? { ...l, activity: activityOverride || "—", activitySuggested: false }
+          : l;
         const override = statusOverrides[l.id];
-        return override ? { ...l, status: override, isNew: false } : l;
+        return override ? { ...withActivity, status: override, isNew: false } : withActivity;
       }),
-    [logs, statusOverrides]
+    [logs, statusOverrides, activityOverrides]
   );
   const feedLogs = useMemo(
     () =>
@@ -445,13 +615,22 @@ export default function LogsPanel({
     () => Array.from(new Set(feedLogs.map((l) => l.field))).sort(),
     [feedLogs]
   );
-  // Tag names present on the feed's logs (drives the Tags filter select).
-  const tagOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(feedLogs.flatMap((l) => l.tags ?? []).map((t) => t.name))
-      ).sort(),
-    [feedLogs]
+  // Tags present on the feed's logs (drives the Tags filter + their colors).
+  const { tagOptions, tagColorByName } = useMemo(() => {
+    const byName = new Map<string, { name: string; color: string | null }>();
+    for (const t of feedLogs.flatMap((l) => l.tags ?? [])) {
+      const key = t.name.toLowerCase();
+      if (!byName.has(key)) byName.set(key, { name: t.name, color: t.color });
+    }
+    const options = Array.from(byName.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+    const colors = new Map(options.map((o) => [o.name.toLowerCase(), o.color]));
+    return { tagOptions: options, tagColorByName: colors };
+  }, [feedLogs]);
+  const tagFilter = useMemo(
+    () => new Set(selectedTags.map((t) => t.toLowerCase())),
+    [selectedTags]
   );
 
   const q = searchQuery.trim().toLowerCase();
@@ -480,9 +659,9 @@ export default function LogsPanel({
     .filter((log) => (activity === "all" ? true : log.activity === activity))
     .filter((log) => (field === "all" ? true : log.field === field))
     .filter((log) =>
-      tag === "all"
+      tagFilter.size === 0
         ? true
-        : (log.tags ?? []).some((t) => t.name.toLowerCase() === tag.toLowerCase())
+        : (log.tags ?? []).some((t) => tagFilter.has(t.name.toLowerCase()))
     )
     .sort((a, b) => {
       switch (sortMode) {
@@ -526,7 +705,7 @@ export default function LogsPanel({
     (dateRange === "all" ? 0 : 1) +
     (activity === "all" ? 0 : 1) +
     (field === "all" ? 0 : 1) +
-    (tag === "all" ? 0 : 1);
+    selectedTags.length;
   const dateLabel =
     DATE_OPTIONS.find((d) => d.value === dateRange)?.label ?? "Date";
   const sortLabel =
@@ -542,9 +721,55 @@ export default function LogsPanel({
     setDateRange("all");
     setActivity("all");
     updateField("all");
-    setTag("all");
+    setSelectedTags([]);
     setOpenMenu(null);
   };
+
+  const toggleTag = (name: string) =>
+    setSelectedTags((prev) =>
+      prev.some((t) => t.toLowerCase() === name.toLowerCase())
+        ? prev.filter((t) => t.toLowerCase() !== name.toLowerCase())
+        : [...prev, name]
+    );
+
+  // All active filters as one list (date, activity, field, then tags). Only
+  // the first few render inline; the rest collapse into a "+N" pill so the
+  // header row never grows tall enough to crowd the table heading.
+  const activeFilters: FilterPill[] = [];
+  if (dateRange !== "all")
+    activeFilters.push({
+      key: "date",
+      kind: "date",
+      label: dateLabel,
+      dot: null,
+      clear: () => setDateRange("all"),
+    });
+  if (activity !== "all")
+    activeFilters.push({
+      key: "activity",
+      kind: "activity",
+      label: activity,
+      dot: null,
+      clear: () => setActivity("all"),
+    });
+  if (field !== "all")
+    activeFilters.push({
+      key: "field",
+      kind: "field",
+      label: field,
+      dot: null,
+      clear: () => updateField("all"),
+    });
+  for (const t of selectedTags)
+    activeFilters.push({
+      key: `tag:${t.toLowerCase()}`,
+      kind: "tag",
+      label: t,
+      dot: tagColorByName.get(t.toLowerCase()) ?? "#4f5660",
+      clear: () => toggleTag(t),
+    });
+  const shownFilters = activeFilters.slice(0, MAX_FILTER_PILLS);
+  const overflowFilters = activeFilters.slice(MAX_FILTER_PILLS);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -637,53 +862,62 @@ export default function LogsPanel({
             </Pill>
           </div>
 
-          {/* Active filters — dark pills inline, Figma style */}
-          {dateRange !== "all" && (
-            <div className="shrink-0">
-              <Pill
-                active
-                icon="x"
-                onClick={() => setDateRange("all")}
-                ariaLabel={`Clear date filter ${dateLabel}`}
-              >
-                {dateLabel}
+          {/* Active filters — dark pills inline, capped at MAX_FILTER_PILLS;
+              the rest collapse into a "+N" pill (hover previews, click opens
+              the full filter menu) so the row can't crowd the table heading */}
+          {shownFilters.map((f) => (
+            <div key={f.key} className="shrink-0">
+              <Pill active icon="x" onClick={f.clear} ariaLabel={`Clear ${f.kind} filter ${f.label}`}>
+                {f.dot && (
+                  <span
+                    aria-hidden
+                    className="mr-1.5 inline-block h-2 w-2 rounded-full border border-white/25"
+                    style={{ backgroundColor: f.dot }}
+                  />
+                )}
+                {f.label}
               </Pill>
             </div>
-          )}
-          {activity !== "all" && (
-            <div className="shrink-0">
+          ))}
+          {overflowFilters.length > 0 && (
+            <div
+              ref={moreRef}
+              className="group relative shrink-0"
+              title={overflowFilters.map((f) => f.label).join(" · ")}
+            >
               <Pill
-                active
-                icon="x"
-                onClick={() => setActivity("all")}
-                ariaLabel={`Clear activity filter ${activity}`}
+                onClick={() => toggleMenuAnchored("filter", moreRef)}
+                ariaExpanded={openMenu === "filter"}
+                ariaLabel={`Show ${overflowFilters.length} more active filters`}
               >
-                {activity}
+                +{overflowFilters.length}
               </Pill>
-            </div>
-          )}
-          {field !== "all" && (
-            <div className="shrink-0">
-              <Pill
-                active
-                icon="x"
-                onClick={() => updateField("all")}
-                ariaLabel={`Clear field filter ${field}`}
-              >
-                {field}
-              </Pill>
-            </div>
-          )}
-          {tag !== "all" && (
-            <div className="shrink-0">
-              <Pill
-                active
-                icon="x"
-                onClick={() => setTag("all")}
-                ariaLabel={`Clear tag filter ${tag}`}
-              >
-                {tag}
-              </Pill>
+              {/* Hover preview of the hidden filters — each removable in
+                  place. Absolutely positioned inside this group so the hover
+                  state (and the pointer bridge) survives moving onto it. On
+                  touch, the pill's click opens the filter menu instead. */}
+              <div className="pointer-events-none absolute right-0 top-full z-50 pt-1.5 group-hover:pointer-events-auto">
+                <div className="flex w-max max-w-[240px] flex-col items-start gap-1.5 overflow-hidden rounded-xl border border-[#ececec] bg-white p-2 opacity-0 shadow-[0_12px_32px_rgba(0,0,0,0.12)] transition-opacity duration-100 group-hover:opacity-100">
+                  {overflowFilters.map((f) => (
+                    <Pill
+                      key={f.key}
+                      active
+                      icon="x"
+                      onClick={f.clear}
+                      ariaLabel={`Clear ${f.kind} filter ${f.label}`}
+                    >
+                      {f.dot && (
+                        <span
+                          aria-hidden
+                          className="mr-1.5 inline-block h-2 w-2 rounded-full border border-white/25"
+                          style={{ backgroundColor: f.dot }}
+                        />
+                      )}
+                      {f.label}
+                    </Pill>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -739,13 +973,44 @@ export default function LogsPanel({
                     options={fields}
                   />
                   {tagOptions.length > 0 && (
-                    <FilterSelect
-                      label="Tags"
-                      value={tag}
-                      onChange={setTag}
-                      allLabel="All tags"
-                      options={tagOptions}
-                    />
+                    <div>
+                      <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-[#b3b3b3]">
+                        Tags
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tagOptions.map((t) => {
+                          const on = tagFilter.has(t.name.toLowerCase());
+                          return (
+                            <button
+                              key={t.name}
+                              type="button"
+                              onClick={() => toggleTag(t.name)}
+                              aria-pressed={on}
+                              className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                                on
+                                  ? t.color
+                                    ? ""
+                                    : "border-black/20 bg-[#f0f0f0] text-black"
+                                  : "border-[#e3e3e3] bg-white text-[#4d4d4d] hover:bg-[#f8f8f8]"
+                              }`}
+                              style={on ? chipStyle(t.color) : undefined}
+                            >
+                              <span
+                                aria-hidden
+                                className="h-2 w-2 shrink-0 rounded-full border border-black/10"
+                                style={{ backgroundColor: t.color ?? "#4f5660" }}
+                              />
+                              <span className="max-w-[120px] truncate">
+                                {t.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-[#b3b3b3]">
+                        Shows logs with any selected tag
+                      </p>
+                    </div>
                   )}
                   <button
                     onClick={clearAll}
@@ -844,6 +1109,14 @@ export default function LogsPanel({
                   )}
                   <span className="hidden truncate md:block">
                     {log.activity}
+                    {log.activitySuggested && (
+                      <span
+                        title="Suggested from the recording — change it in the detail view"
+                        className="ml-1 inline-flex h-3 w-3 translate-y-[1px] items-center text-[#146c44]"
+                      >
+                        <Icon name="sparkle" size={10} alt="Suggested activity" />
+                      </span>
+                    )}
                   </span>
                   <span className="hidden truncate md:block">{log.date}</span>
                   <span className="hidden truncate md:block">{log.field}</span>
@@ -860,7 +1133,14 @@ export default function LogsPanel({
                 </>
               }
               detail={
-                <LogDetail log={log} mapField={fieldIndex[log.field] ?? null} />
+                <LogDetail
+                  log={log}
+                  mapField={fieldIndex[log.field] ?? null}
+                  activities={activityOptions}
+                  onActivityChange={(id, activity) =>
+                    setActivityOverrides((prev) => ({ ...prev, [id]: activity }))
+                  }
+                />
               }
             />
           );

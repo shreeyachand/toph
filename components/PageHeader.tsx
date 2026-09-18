@@ -28,6 +28,7 @@ export function PageHeader({
         role={shell.role}
         active={shell.active}
         onNavigate={shell.onNavigate}
+        newCount={shell.newCount}
         className="mt-[1px]"
       />
     ) : null);

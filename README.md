@@ -13,7 +13,7 @@ npm run dev   # http://localhost:3000
 
 - `app/api/` — Node resource endpoints, the only place that talks to Postgres:
   - `GET /api/recordings[?status&activity&field&search&from&to&sort&limit&offset]` — the new-recordings feed behind New Employee Logs
-  - `GET /api/recordings/:id` (+ `PATCH {status}`) — expanded log detail (transcript, guided Q&A, tags) and review actions
+  - `GET /api/recordings/:id` (+ `PATCH {status}` / `PATCH {activity}`) — expanded log detail (transcript, guided Q&A, tags), review actions and activity corrections
   - `GET|POST /api/recordings/:id/tags` (+ `DELETE ?tag_id=`) — Add Tag button
   - `GET /api/stats` — stat cards (today's recordings/new, active workers, accuracy)
   - `GET /api/meta` — farm/role + activity/field/tag filter options
@@ -32,6 +32,7 @@ Migrations applied (via Supabase MCP):
 - `seed_figma_data` — 11 employees/fields/activities/logs from the Figma refs (+2 guided Q&A rows)
 - `dashboard_views` — `v_dashboard_stats`, `v_response_accuracy_daily`
 - `enable_postgis_geo` — PostGIS extension, `fields.geom` / `center_geog` + `voice_logs.geog` (sync triggers, GiST indexes), acreage-sized polygon backfill, `v_fields_map` GeoJSON view, `logs_near_point(lat,lng,radius_m)` radius search
+- `voice_logs_activity_suggested` — `voice_logs.activity_suggested` flag: the save-time Groq pass also classifies the activity (strict enum over `activity_types`, validated server-side); when the worker leaves the recorder's activity on "Auto-detect from audio" the classified value is stored with this flag and shown in the UI as a changeable guess
 
 `getDashboardData()` in `lib/data.ts` fans out to `/api/recordings` + `/api/stats` + `/api/meta` in parallel and assembles one `DashboardData` for `<Dashboard>` — the frontend composes resources, so no aggregate `/api/dashboard` endpoint. Each route falls back to mock data when Supabase is unconnected; components never import Supabase directly.
 
